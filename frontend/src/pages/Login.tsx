@@ -6,8 +6,9 @@ import { useNavigate } from "react-router-dom";
 import { ArrowLeft, LogIn, Eye, EyeOff, Mail, Lock, CheckCircle, XCircle } from "lucide-react";
 import { useState } from "react";
 import { Link } from "react-router-dom";
+import { useAuth } from "@/contexts/AuthContext"; // Import the auth context
 
-// API base URL - update this to your backend URL
+// API base URL
 const API_BASE_URL = 'http://localhost:5000/api';
 
 interface LoginFormData {
@@ -23,6 +24,7 @@ interface ValidationErrors {
 
 const Login = () => {
   const navigate = useNavigate();
+  const { login } = useAuth(); // Get login function from context
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [formData, setFormData] = useState<LoginFormData>({
@@ -95,15 +97,14 @@ const Login = () => {
       if (response.ok) {
         setSuccessMessage('Login successful! Redirecting...');
         
-        // Store token and user data in localStorage
-        if (data.data?.token) {
-          localStorage.setItem('authToken', data.data.token);
-          localStorage.setItem('user', JSON.stringify(data.data.user));
+        // Use the AuthContext login function instead of direct localStorage
+        if (data.data?.token && data.data?.user) {
+          login(data.data.user, data.data.token);
         }
 
-        // Redirect to home after 1 second
+        // Redirect to symptoms after 1 second
         setTimeout(() => {
-          navigate('/');
+          navigate('/symptoms');
         }, 1000);
       } else {
         // Handle backend validation errors
@@ -131,9 +132,7 @@ const Login = () => {
     navigate(-1);
   };
 
-  // Demo credentials for testing
  
-
   return (
     <div className="min-h-screen bg-gradient-to-br from-[#e8f9f6] to-[#d1f2eb] flex items-center justify-center p-4">
       <div className="max-w-md w-full space-y-8">
@@ -181,7 +180,7 @@ const Login = () => {
               </div>
             )}
 
-            
+           
 
             <form onSubmit={handleSubmit} className="space-y-4">
               <div className="space-y-2">

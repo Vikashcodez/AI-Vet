@@ -18,6 +18,7 @@ import Index from "./pages/Index";
 import AIChatButton from "./components/AIChatButton";
 import Login from "./pages/Login";
 import Signup from "./pages/Signup";
+import { AuthProvider } from './contexts/AuthContext';
 
 function App() {
   const queryClient = new QueryClient();
@@ -27,6 +28,7 @@ function App() {
       <TooltipProvider>
         <Toaster />
         <Sonner />
+        <AuthProvider>
         <BrowserRouter>
           <Routes>
             <Route path="/" element={<Index />} />
@@ -46,6 +48,7 @@ function App() {
           </Routes>
           <AIChatButton />
         </BrowserRouter>
+        </AuthProvider>
       </TooltipProvider>
     </QueryClientProvider>
   );
