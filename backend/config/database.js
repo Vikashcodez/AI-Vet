@@ -2,9 +2,9 @@ const { Pool } = require('pg');
 require('dotenv').config();
 
 // Neon PostgreSQL connection string format
-// postgresql://username:password@host:port/database?options
 const connectionString = process.env.DATABASE_URL;
 
+// Create the pool instance directly
 const pool = new Pool({
   connectionString: connectionString,
   ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false,
@@ -28,12 +28,12 @@ CREATE TABLE IF NOT EXISTS users (
   updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
--- User tokens table (for email verification, password reset, etc.)
+-- User tokens table
 CREATE TABLE IF NOT EXISTS user_tokens (
   id SERIAL PRIMARY KEY,
   user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
   token VARCHAR(500) NOT NULL,
-  token_type VARCHAR(50) NOT NULL, -- 'email_verification', 'password_reset'
+  token_type VARCHAR(50) NOT NULL,
   expires_at TIMESTAMP NOT NULL,
   used BOOLEAN DEFAULT FALSE,
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
@@ -49,7 +49,7 @@ CREATE TABLE IF NOT EXISTS user_sessions (
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
--- Indexes for better performance
+-- Indexes
 CREATE INDEX IF NOT EXISTS idx_users_email ON users(email);
 CREATE INDEX IF NOT EXISTS idx_users_phone ON users(phone);
 CREATE INDEX IF NOT EXISTS idx_user_tokens_token ON user_tokens(token);
@@ -65,7 +65,7 @@ BEGIN
 END;
 $$ language 'plpgsql';
 
--- Trigger to automatically update updated_at (only if it doesn't exist)
+-- Trigger
 DO $$ 
 BEGIN
     IF NOT EXISTS (SELECT 1 FROM pg_trigger WHERE tgname = 'update_users_updated_at') THEN
@@ -84,7 +84,6 @@ const initializeDatabase = async () => {
   try {
     console.log('🔍 Checking database schema...');
     
-    // Check if users table exists
     const tableCheck = await client.query(`
       SELECT EXISTS (
         SELECT FROM information_schema.tables 
@@ -97,29 +96,8 @@ const initializeDatabase = async () => {
     
     if (!usersTableExists) {
       console.log('📦 Creating database schema...');
-      
-      // Execute schema creation
       await client.query(schemaSQL);
-      
       console.log('✅ Database schema created successfully!');
-      
-      // Insert a test user (optional - remove in production)
-      if (process.env.NODE_ENV === 'development') {
-        try {
-          const bcrypt = require('bcryptjs');
-          const testPasswordHash = await bcrypt.hash('test123', 12);
-          
-          await client.query(`
-            INSERT INTO users (first_name, last_name, email, phone, password_hash, email_verified) 
-            VALUES ($1, $2, $3, $4, $5, $6)
-            ON CONFLICT (email) DO NOTHING
-          `, ['Test', 'User', 'test@aivet.com', '+1234567890', testPasswordHash, true]);
-          
-          console.log('👤 Test user created: test@aivet.com / test123');
-        } catch (error) {
-          console.log('⚠️ Test user already exists or could not be created');
-        }
-      }
     } else {
       console.log('✅ Database schema already exists');
     }
@@ -140,7 +118,6 @@ const testConnection = async () => {
     console.log('✅ Database connected successfully at:', result.rows[0].current_time);
     client.release();
     
-    // Initialize schema after successful connection
     await initializeDatabase();
   } catch (error) {
     console.error('❌ Database connection failed:', error.message);
@@ -157,9 +134,9 @@ pool.on('error', (err) => {
   console.error('💥 Database connection error:', err);
 });
 
-// Export the pool and initialization function
-module.exports = {
-  pool,
-  initializeDatabase,
-  testConnection
-};
+// Export the pool directly (not as an object property)
+module.exports = pool;
+
+// Also export the functions separately if needed elsewhere
+module.exports.initializeDatabase = initializeDatabase;
+module.exports.testConnection = testConnection;

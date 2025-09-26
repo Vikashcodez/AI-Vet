@@ -1,6 +1,6 @@
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
-const pool = require('../config/database');
+const pool = require('../config/database'); // Direct import
 
 // Generate JWT token
 const generateToken = (userId) => {
@@ -11,7 +11,7 @@ const generateToken = (userId) => {
 
 // User registration
 const registerUser = async (req, res) => {
-  const client = await pool.connect();
+  const client = await pool.connect(); // Now pool.connect should work
   
   try {
     await client.query('BEGIN');
@@ -87,11 +87,13 @@ const registerUser = async (req, res) => {
 
 // User login
 const loginUser = async (req, res) => {
+  const client = await pool.connect();
+  
   try {
     const { email, password } = req.body;
 
     // Find user by email
-    const userResult = await pool.query(
+    const userResult = await client.query(
       `SELECT id, first_name, last_name, email, phone, password_hash, is_active 
        FROM users WHERE email = $1`,
       [email]
@@ -127,7 +129,7 @@ const loginUser = async (req, res) => {
     const token = generateToken(user.id);
 
     // Update last login
-    await pool.query(
+    await client.query(
       'UPDATE users SET last_login = CURRENT_TIMESTAMP WHERE id = $1',
       [user.id]
     );
@@ -153,12 +155,17 @@ const loginUser = async (req, res) => {
       success: false,
       message: 'Internal server error during login'
     });
+  } finally {
+    client.release();
   }
 };
 
 // Get current user profile
 const getCurrentUser = async (req, res) => {
+  const client = await pool.connect();
+  
   try {
+    // User is already attached to req by auth middleware
     res.json({
       success: true,
       data: {
@@ -177,116 +184,16 @@ const getCurrentUser = async (req, res) => {
       success: false,
       message: 'Internal server error'
     });
-  }
-};
-
-// Update user profile
-const updateUserProfile = async (req, res) => {
-  const client = await pool.connect();
-  
-  try {
-    await client.query('BEGIN');
-
-    const { firstName, lastName, phone } = req.body;
-    const userId = req.user.id;
-
-    const result = await client.query(
-      `UPDATE users 
-       SET first_name = $1, last_name = $2, phone = $3 
-       WHERE id = $4 
-       RETURNING first_name, last_name, email, phone, updated_at`,
-      [firstName, lastName, phone, userId]
-    );
-
-    await client.query('COMMIT');
-
-    res.json({
-      success: true,
-      message: 'Profile updated successfully',
-      data: {
-        user: {
-          firstName: result.rows[0].first_name,
-          lastName: result.rows[0].last_name,
-          email: result.rows[0].email,
-          phone: result.rows[0].phone,
-          updatedAt: result.rows[0].updated_at
-        }
-      }
-    });
-
-  } catch (error) {
-    await client.query('ROLLBACK');
-    console.error('Update profile error:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Internal server error during profile update'
-    });
   } finally {
     client.release();
   }
 };
 
-// Change password
-const changePassword = async (req, res) => {
-  const client = await pool.connect();
-  
-  try {
-    await client.query('BEGIN');
-
-    const { currentPassword, newPassword } = req.body;
-    const userId = req.user.id;
-
-    // Get current password hash
-    const userResult = await client.query(
-      'SELECT password_hash FROM users WHERE id = $1',
-      [userId]
-    );
-
-    const user = userResult.rows[0];
-
-    // Verify current password
-    const isCurrentPasswordValid = await bcrypt.compare(currentPassword, user.password_hash);
-    if (!isCurrentPasswordValid) {
-      await client.query('ROLLBACK');
-      return res.status(401).json({
-        success: false,
-        message: 'Current password is incorrect'
-      });
-    }
-
-    // Hash new password
-    const saltRounds = 12;
-    const newPasswordHash = await bcrypt.hash(newPassword, saltRounds);
-
-    // Update password
-    await client.query(
-      'UPDATE users SET password_hash = $1 WHERE id = $2',
-      [newPasswordHash, userId]
-    );
-
-    await client.query('COMMIT');
-
-    res.json({
-      success: true,
-      message: 'Password changed successfully'
-    });
-
-  } catch (error) {
-    await client.query('ROLLBACK');
-    console.error('Change password error:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Internal server error during password change'
-    });
-  } finally {
-    client.release();
-  }
-};
+// Update the auth middleware to use proper connection
+const { authenticateToken } = require('../middleware/auth');
 
 module.exports = {
   registerUser,
   loginUser,
-  getCurrentUser,
-  updateUserProfile,
-  changePassword
+  getCurrentUser
 };

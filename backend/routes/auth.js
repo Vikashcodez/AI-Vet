@@ -3,9 +3,7 @@ const router = express.Router();
 const {
   registerUser,
   loginUser,
-  getCurrentUser,
-  updateUserProfile,
-  changePassword
+  getCurrentUser
 } = require('../controllers/userController');
 const { authenticateToken } = require('../middleware/auth');
 const {
@@ -20,7 +18,9 @@ router.post('/login', validateLogin, handleValidationErrors, loginUser);
 
 // Protected routes
 router.get('/me', authenticateToken, getCurrentUser);
-router.put('/profile', authenticateToken, updateUserProfile);
-router.put('/change-password', authenticateToken, changePassword);
+
+// Remove the problematic routes for now - we'll add them back later
+// router.put('/profile', authenticateToken, updateUserProfile);
+// router.put('/change-password', authenticateToken, changePassword);
 
 module.exports = router;
