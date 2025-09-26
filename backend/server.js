@@ -1,94 +1,113 @@
 const express = require('express');
-const session = require('express-session');
-const passport = require('passport');
 const cors = require('cors');
+const helmet = require('helmet');
+const rateLimit = require('express-rate-limit');
 require('dotenv').config();
 
-// Import configurations
-require('./config/passport');
-const db = require('./config/database');
-
-// Import routes
 const authRoutes = require('./routes/auth');
-const userRoutes = require('./routes/user');
+const { testConnection } = require('./config/database');
 
 const app = express();
 const PORT = process.env.PORT || 5000;
 
+// Security middleware
+app.use(helmet());
+
+// Rate limiting
+const limiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 100, // limit each IP to 100 requests per windowMs
+  message: {
+    success: false,
+    message: 'Too many requests from this IP, please try again later.'
+  }
+});
+app.use(limiter);
+
 // CORS configuration
 app.use(cors({
-  origin: process.env.FRONTEND_URL || 'http://localhost:3000',
-  credentials: true,
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization']
+  origin: process.env.CLIENT_URL || 'http://localhost:3000',
+  credentials: true
 }));
 
 // Body parsing middleware
-app.use(express.json());
+app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true }));
 
-// Session middleware
-app.use(session({
-  secret: process.env.JWT_SECRET,
-  resave: false,
-  saveUninitialized: false,
-  cookie: {
-    secure: process.env.NODE_ENV === 'production',
-    maxAge: 24 * 60 * 60 * 1000, // 24 hours
-    httpOnly: true,
-    sameSite: process.env.NODE_ENV === 'production' ? 'none' : 'lax'
-  }
-}));
-
-// Passport middleware
-app.use(passport.initialize());
-app.use(passport.session());
-
-// Routes
-app.use('/auth', authRoutes);
-app.use('/api/user', userRoutes);
-
-// Health check endpoint
-app.get('/api/health', (req, res) => {
-  res.status(200).json({
-    success: true,
-    message: 'Server is running successfully',
-    timestamp: new Date().toISOString()
-  });
-});
-
-// Error handling middleware
-app.use((err, req, res, next) => {
-  console.error('Error:', err);
-  res.status(err.status || 500).json({
-    success: false,
-    message: err.message || 'Internal Server Error',
-    ...(process.env.NODE_ENV === 'development' && { stack: err.stack })
-  });
-});
-
-// 404 handler
-app.use((req, res) => {
-  res.status(404).json({
-    success: false,
-    message: 'API endpoint not found'
-  });
-});
-
-// Initialize database and start server
-async function startServer() {
+// Health check route with database status
+app.get('/health', async (req, res) => {
   try {
-    await db.initialize();
-    console.log('✅ Database connected successfully');
+    const { pool } = require('./config/database');
+    // Test database connection
+    const client = await pool.connect();
+    const dbResult = await client.query('SELECT NOW() as db_time, version() as db_version');
+    client.release();
     
-    app.listen(PORT, () => {
-      console.log(`🚀 Server running on port ${PORT}`);
-      console.log(`📍 Environment: ${process.env.NODE_ENV}`);
+    res.status(200).json({
+      success: true,
+      message: 'AI Vet Backend is running successfully',
+      timestamp: new Date().toISOString(),
+      database: {
+        status: 'connected',
+        time: dbResult.rows[0].db_time,
+        version: dbResult.rows[0].db_version.split(' ')[1] // Extract PostgreSQL version
+      }
     });
   } catch (error) {
-    console.error('❌ Failed to start server:', error);
+    res.status(500).json({
+      success: false,
+      message: 'AI Vet Backend is running but database connection failed',
+      timestamp: new Date().toISOString(),
+      database: {
+        status: 'disconnected',
+        error: error.message
+      }
+    });
+  }
+});
+
+// API routes
+app.use('/api/auth', authRoutes);
+
+// 404 handler - FIXED: Use proper path matching
+app.use((req, res, next) => {
+  res.status(404).json({
+    success: false,
+    message: 'Route not found',
+    path: req.path,
+    method: req.method
+  });
+});
+
+// Global error handler
+app.use((error, req, res, next) => {
+  console.error('Global error handler:', error);
+  res.status(500).json({
+    success: false,
+    message: 'Internal server error'
+  });
+});
+
+// Start server with database initialization
+const startServer = async () => {
+  try {
+    // Test database connection and initialize schema
+    await testConnection();
+    
+    // Start the server
+    app.listen(PORT, () => {
+      console.log(`🚀 AI Vet Backend server running on port ${PORT}`);
+      console.log(`📍 Environment: ${process.env.NODE_ENV}`);
+      console.log(`🌐 Client URL: ${process.env.CLIENT_URL}`);
+      console.log(`🗄️  Database: Neon PostgreSQL`);
+      console.log(`🔗 Health check: http://localhost:${PORT}/health`);
+    });
+  } catch (error) {
+    console.error('❌ Failed to start server:', error.message);
     process.exit(1);
   }
-}
+};
 
 startServer();
+
+module.exports = app;

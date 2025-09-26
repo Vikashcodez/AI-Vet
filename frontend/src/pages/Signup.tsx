@@ -3,16 +3,40 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useNavigate } from "react-router-dom";
-import { ArrowLeft, UserPlus, Eye, EyeOff, Mail, Lock, User, Phone, Shield } from "lucide-react";
+import { ArrowLeft, UserPlus, Eye, EyeOff, Mail, Lock, User, Phone, Shield, CheckCircle, XCircle } from "lucide-react";
 import { useState } from "react";
 import { Link } from "react-router-dom";
+
+// API base URL - update this to your backend URL
+const API_BASE_URL ='http://localhost:5000/api';
+
+interface SignupFormData {
+  firstName: string;
+  lastName: string;
+  email: string;
+  phone: string;
+  password: string;
+  confirmPassword: string;
+  acceptTerms: boolean;
+}
+
+interface ValidationErrors {
+  firstName?: string;
+  lastName?: string;
+  email?: string;
+  phone?: string;
+  password?: string;
+  confirmPassword?: string;
+  acceptTerms?: string;
+  general?: string;
+}
 
 const Signup = () => {
   const navigate = useNavigate();
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
-  const [formData, setFormData] = useState({
+  const [formData, setFormData] = useState<SignupFormData>({
     firstName: '',
     lastName: '',
     email: '',
@@ -21,6 +45,8 @@ const Signup = () => {
     confirmPassword: '',
     acceptTerms: false
   });
+  const [errors, setErrors] = useState<ValidationErrors>({});
+  const [successMessage, setSuccessMessage] = useState('');
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value, type, checked } = e.target;
@@ -28,35 +54,164 @@ const Signup = () => {
       ...prev,
       [name]: type === 'checkbox' ? checked : value
     }));
+    
+    // Clear errors when user starts typing
+    if (errors[name as keyof ValidationErrors]) {
+      setErrors(prev => ({
+        ...prev,
+        [name]: undefined
+      }));
+    }
+  };
+
+  const validateForm = (): boolean => {
+    const newErrors: ValidationErrors = {};
+
+    // First Name validation
+    if (!formData.firstName.trim()) {
+      newErrors.firstName = 'First name is required';
+    } else if (formData.firstName.length < 2) {
+      newErrors.firstName = 'First name must be at least 2 characters';
+    } else if (!/^[a-zA-Z\s]+$/.test(formData.firstName)) {
+      newErrors.firstName = 'First name can only contain letters and spaces';
+    }
+
+    // Last Name validation
+    if (!formData.lastName.trim()) {
+      newErrors.lastName = 'Last name is required';
+    } else if (formData.lastName.length < 2) {
+      newErrors.lastName = 'Last name must be at least 2 characters';
+    } else if (!/^[a-zA-Z\s]+$/.test(formData.lastName)) {
+      newErrors.lastName = 'Last name can only contain letters and spaces';
+    }
+
+    // Email validation
+    if (!formData.email.trim()) {
+      newErrors.email = 'Email is required';
+    } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) {
+      newErrors.email = 'Please enter a valid email address';
+    }
+
+    // Phone validation (optional but if provided, validate)
+    if (formData.phone.trim() && !/^\+?[\d\s-()]{10,}$/.test(formData.phone.replace(/\s/g, ''))) {
+      newErrors.phone = 'Please enter a valid phone number';
+    }
+
+    // Password validation
+    if (!formData.password) {
+      newErrors.password = 'Password is required';
+    } else if (formData.password.length < 6) {
+      newErrors.password = 'Password must be at least 6 characters';
+    } else if (!/(?=.*[a-z])(?=.*[A-Z])(?=.*\d)/.test(formData.password)) {
+      newErrors.password = 'Password must contain at least one lowercase letter, one uppercase letter, and one number';
+    }
+
+    // Confirm Password validation
+    if (!formData.confirmPassword) {
+      newErrors.confirmPassword = 'Please confirm your password';
+    } else if (formData.password !== formData.confirmPassword) {
+      newErrors.confirmPassword = 'Passwords do not match';
+    }
+
+    // Terms acceptance validation
+    if (!formData.acceptTerms) {
+      newErrors.acceptTerms = 'You must accept the terms and conditions';
+    }
+
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setIsLoading(true);
-    
-    // Basic validation
-    if (formData.password !== formData.confirmPassword) {
-      alert("Passwords don't match!");
-      setIsLoading(false);
-      return;
-    }
-    
-    if (!formData.acceptTerms) {
-      alert("Please accept the terms and conditions");
-      setIsLoading(false);
+    setErrors({});
+    setSuccessMessage('');
+
+    if (!validateForm()) {
       return;
     }
 
-    // Simulate signup process
-    setTimeout(() => {
+    setIsLoading(true);
+
+    try {
+      const response = await fetch(`${API_BASE_URL}/auth/register`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          firstName: formData.firstName.trim(),
+          lastName: formData.lastName.trim(),
+          email: formData.email.trim().toLowerCase(),
+          phone: formData.phone.trim() || undefined,
+          password: formData.password,
+          confirmPassword: formData.confirmPassword
+        }),
+      });
+
+      const data = await response.json();
+
+      if (response.ok) {
+        setSuccessMessage('Account created successfully! Redirecting to login...');
+        
+        // Store token in localStorage if needed
+        if (data.data?.token) {
+          localStorage.setItem('authToken', data.data.token);
+          localStorage.setItem('user', JSON.stringify(data.data.user));
+        }
+
+        // Redirect to login after 2 seconds
+        setTimeout(() => {
+          navigate('/login');
+        }, 2000);
+      } else {
+        // Handle backend validation errors
+        if (data.errors && Array.isArray(data.errors)) {
+          const backendErrors: ValidationErrors = {};
+          data.errors.forEach((error: any) => {
+            if (error.path) {
+              backendErrors[error.path as keyof ValidationErrors] = error.msg;
+            }
+          });
+          setErrors(backendErrors);
+        } else {
+          setErrors({ general: data.message || 'Registration failed. Please try again.' });
+        }
+      }
+    } catch (error) {
+      console.error('Registration error:', error);
+      setErrors({ general: 'Network error. Please check your connection and try again.' });
+    } finally {
       setIsLoading(false);
-      navigate('/login'); // Redirect to login after successful signup
-    }, 2000);
+    }
   };
 
   const handleBack = () => {
     navigate(-1);
   };
+
+  // Password strength indicator
+  const getPasswordStrength = () => {
+    if (!formData.password) return { strength: 0, label: '' };
+    
+    let strength = 0;
+    if (formData.password.length >= 6) strength += 25;
+    if (/[a-z]/.test(formData.password)) strength += 25;
+    if (/[A-Z]/.test(formData.password)) strength += 25;
+    if (/\d/.test(formData.password)) strength += 25;
+    
+    const labels = {
+      0: '',
+      25: 'Very Weak',
+      50: 'Weak',
+      75: 'Good',
+      100: 'Strong'
+    };
+    
+    return { strength, label: labels[strength as keyof typeof labels] };
+  };
+
+  const passwordStrength = getPasswordStrength();
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-[#e8f9f6] to-[#d1f2eb] flex items-center justify-center p-4">
@@ -85,12 +240,32 @@ const Signup = () => {
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
+            {/* Success Message */}
+            {successMessage && (
+              <div className="bg-green-50 border border-green-200 rounded-lg p-4">
+                <div className="flex items-center space-x-2 text-green-800">
+                  <CheckCircle className="h-5 w-5" />
+                  <span className="text-sm font-medium">{successMessage}</span>
+                </div>
+              </div>
+            )}
+
+            {/* General Error Message */}
+            {errors.general && (
+              <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+                <div className="flex items-center space-x-2 text-red-800">
+                  <XCircle className="h-5 w-5" />
+                  <span className="text-sm font-medium">{errors.general}</span>
+                </div>
+              </div>
+            )}
+
             <form onSubmit={handleSubmit} className="space-y-4">
               {/* Name Fields */}
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label htmlFor="firstName" className="text-sm font-medium text-gray-700">
-                    First Name
+                    First Name *
                   </Label>
                   <div className="relative">
                     <User className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
@@ -99,17 +274,19 @@ const Signup = () => {
                       name="firstName"
                       type="text"
                       placeholder="First name"
-                      className="pl-10 h-11"
+                      className={`pl-10 h-11 ${errors.firstName ? 'border-red-500' : ''}`}
                       value={formData.firstName}
                       onChange={handleChange}
-                      required
                     />
                   </div>
+                  {errors.firstName && (
+                    <p className="text-red-500 text-xs">{errors.firstName}</p>
+                  )}
                 </div>
 
                 <div className="space-y-2">
                   <Label htmlFor="lastName" className="text-sm font-medium text-gray-700">
-                    Last Name
+                    Last Name *
                   </Label>
                   <div className="relative">
                     <User className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
@@ -118,19 +295,21 @@ const Signup = () => {
                       name="lastName"
                       type="text"
                       placeholder="Last name"
-                      className="pl-10 h-11"
+                      className={`pl-10 h-11 ${errors.lastName ? 'border-red-500' : ''}`}
                       value={formData.lastName}
                       onChange={handleChange}
-                      required
                     />
                   </div>
+                  {errors.lastName && (
+                    <p className="text-red-500 text-xs">{errors.lastName}</p>
+                  )}
                 </div>
               </div>
 
               {/* Email */}
               <div className="space-y-2">
                 <Label htmlFor="email" className="text-sm font-medium text-gray-700">
-                  Email Address
+                  Email Address *
                 </Label>
                 <div className="relative">
                   <Mail className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
@@ -139,12 +318,14 @@ const Signup = () => {
                     name="email"
                     type="email"
                     placeholder="Enter your email"
-                    className="pl-10 h-11"
+                    className={`pl-10 h-11 ${errors.email ? 'border-red-500' : ''}`}
                     value={formData.email}
                     onChange={handleChange}
-                    required
                   />
                 </div>
+                {errors.email && (
+                  <p className="text-red-500 text-xs">{errors.email}</p>
+                )}
               </div>
 
               {/* Phone */}
@@ -159,18 +340,20 @@ const Signup = () => {
                     name="phone"
                     type="tel"
                     placeholder="Enter your phone number"
-                    className="pl-10 h-11"
+                    className={`pl-10 h-11 ${errors.phone ? 'border-red-500' : ''}`}
                     value={formData.phone}
                     onChange={handleChange}
-                    required
                   />
                 </div>
+                {errors.phone && (
+                  <p className="text-red-500 text-xs">{errors.phone}</p>
+                )}
               </div>
 
               {/* Password */}
               <div className="space-y-2">
                 <Label htmlFor="password" className="text-sm font-medium text-gray-700">
-                  Password
+                  Password *
                 </Label>
                 <div className="relative">
                   <Lock className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
@@ -179,11 +362,9 @@ const Signup = () => {
                     name="password"
                     type={showPassword ? "text" : "password"}
                     placeholder="Create a password"
-                    className="pl-10 pr-10 h-11"
+                    className={`pl-10 pr-10 h-11 ${errors.password ? 'border-red-500' : ''}`}
                     value={formData.password}
                     onChange={handleChange}
-                    required
-                    minLength={6}
                   />
                   <Button
                     type="button"
@@ -199,15 +380,38 @@ const Signup = () => {
                     )}
                   </Button>
                 </div>
-                <p className="text-xs text-gray-500">
-                  Must be at least 6 characters long
-                </p>
+                
+                {/* Password Strength Indicator */}
+                {formData.password && (
+                  <div className="space-y-2">
+                    <div className="flex justify-between text-xs text-gray-500">
+                      <span>Password strength:</span>
+                      <span className={passwordStrength.strength >= 75 ? 'text-green-600' : 
+                                     passwordStrength.strength >= 50 ? 'text-yellow-600' : 'text-red-600'}>
+                        {passwordStrength.label}
+                      </span>
+                    </div>
+                    <div className="w-full bg-gray-200 rounded-full h-2">
+                      <div 
+                        className={`h-2 rounded-full ${
+                          passwordStrength.strength >= 75 ? 'bg-green-500' :
+                          passwordStrength.strength >= 50 ? 'bg-yellow-500' : 'bg-red-500'
+                        }`}
+                        style={{ width: `${passwordStrength.strength}%` }}
+                      ></div>
+                    </div>
+                  </div>
+                )}
+                
+                {errors.password && (
+                  <p className="text-red-500 text-xs">{errors.password}</p>
+                )}
               </div>
 
               {/* Confirm Password */}
               <div className="space-y-2">
                 <Label htmlFor="confirmPassword" className="text-sm font-medium text-gray-700">
-                  Confirm Password
+                  Confirm Password *
                 </Label>
                 <div className="relative">
                   <Lock className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
@@ -216,10 +420,9 @@ const Signup = () => {
                     name="confirmPassword"
                     type={showConfirmPassword ? "text" : "password"}
                     placeholder="Confirm your password"
-                    className="pl-10 pr-10 h-11"
+                    className={`pl-10 pr-10 h-11 ${errors.confirmPassword ? 'border-red-500' : ''}`}
                     value={formData.confirmPassword}
                     onChange={handleChange}
-                    required
                   />
                   <Button
                     type="button"
@@ -235,17 +438,20 @@ const Signup = () => {
                     )}
                   </Button>
                 </div>
+                {errors.confirmPassword && (
+                  <p className="text-red-500 text-xs">{errors.confirmPassword}</p>
+                )}
               </div>
 
               {/* Terms and Conditions */}
-              <div className="flex items-center space-x-2">
+              <div className="flex items-start space-x-2">
                 <input
                   type="checkbox"
                   id="acceptTerms"
                   name="acceptTerms"
                   checked={formData.acceptTerms}
                   onChange={handleChange}
-                  className="h-4 w-4 text-medical-600 focus:ring-medical-500 border-gray-300 rounded"
+                  className="h-4 w-4 text-medical-600 focus:ring-medical-500 border-gray-300 rounded mt-1"
                 />
                 <Label htmlFor="acceptTerms" className="text-sm text-gray-700">
                   I agree to the{" "}
@@ -258,6 +464,9 @@ const Signup = () => {
                   </Link>
                 </Label>
               </div>
+              {errors.acceptTerms && (
+                <p className="text-red-500 text-xs">{errors.acceptTerms}</p>
+              )}
 
               <Button
                 type="submit"
