@@ -16,6 +16,8 @@ import DietEvaluation from "./pages/DietEvaluation";
 import DietPlan from "./pages/DietPlan";
 import Index from "./pages/Index";
 import AIChatButton from "./components/AIChatButton";
+import Login from "./pages/Login";
+import Signup from "./pages/Signup";
 
 function App() {
   const queryClient = new QueryClient();
@@ -28,6 +30,8 @@ function App() {
         <BrowserRouter>
           <Routes>
             <Route path="/" element={<Index />} />
+            <Route path="/login" element={<Login />} />
+            <Route path="/register" element={<Signup />} />
             <Route path="/dashboard" element={<Navigate to="/symptoms" />} />
             <Route path="/symptoms" element={<Symptoms />} />
             <Route path="/disease-prediction" element={<DiseasePrediction />} />
