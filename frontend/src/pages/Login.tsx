@@ -3,29 +3,136 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useNavigate } from "react-router-dom";
-import { ArrowLeft, LogIn, Eye, EyeOff, Mail, Lock } from "lucide-react";
+import { ArrowLeft, LogIn, Eye, EyeOff, Mail, Lock, CheckCircle, XCircle } from "lucide-react";
 import { useState } from "react";
 import { Link } from "react-router-dom";
+
+// API base URL - update this to your backend URL
+const API_BASE_URL = 'http://localhost:5000/api';
+
+interface LoginFormData {
+  email: string;
+  password: string;
+}
+
+interface ValidationErrors {
+  email?: string;
+  password?: string;
+  general?: string;
+}
 
 const Login = () => {
   const navigate = useNavigate();
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [formData, setFormData] = useState<LoginFormData>({
+    email: '',
+    password: ''
+  });
+  const [errors, setErrors] = useState<ValidationErrors>({});
+  const [successMessage, setSuccessMessage] = useState('');
+
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const { name, value } = e.target;
+    setFormData(prev => ({
+      ...prev,
+      [name]: value
+    }));
+    
+    // Clear errors when user starts typing
+    if (errors[name as keyof ValidationErrors]) {
+      setErrors(prev => ({
+        ...prev,
+        [name]: undefined
+      }));
+    }
+  };
+
+  const validateForm = (): boolean => {
+    const newErrors: ValidationErrors = {};
+
+    // Email validation
+    if (!formData.email.trim()) {
+      newErrors.email = 'Email is required';
+    } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) {
+      newErrors.email = 'Please enter a valid email address';
+    }
+
+    // Password validation
+    if (!formData.password) {
+      newErrors.password = 'Password is required';
+    }
+
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setErrors({});
+    setSuccessMessage('');
+
+    if (!validateForm()) {
+      return;
+    }
+
     setIsLoading(true);
-    
-    // Simulate login process
-    setTimeout(() => {
+
+    try {
+      const response = await fetch(`${API_BASE_URL}/auth/login`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          email: formData.email.trim().toLowerCase(),
+          password: formData.password
+        }),
+      });
+
+      const data = await response.json();
+
+      if (response.ok) {
+        setSuccessMessage('Login successful! Redirecting...');
+        
+        // Store token and user data in localStorage
+        if (data.data?.token) {
+          localStorage.setItem('authToken', data.data.token);
+          localStorage.setItem('user', JSON.stringify(data.data.user));
+        }
+
+        // Redirect to home after 1 second
+        setTimeout(() => {
+          navigate('/');
+        }, 1000);
+      } else {
+        // Handle backend validation errors
+        if (data.errors && Array.isArray(data.errors)) {
+          const backendErrors: ValidationErrors = {};
+          data.errors.forEach((error: any) => {
+            if (error.path) {
+              backendErrors[error.path as keyof ValidationErrors] = error.msg;
+            }
+          });
+          setErrors(backendErrors);
+        } else {
+          setErrors({ general: data.message || 'Login failed. Please try again.' });
+        }
+      }
+    } catch (error) {
+      console.error('Login error:', error);
+      setErrors({ general: 'Network error. Please check your connection and try again.' });
+    } finally {
       setIsLoading(false);
-      navigate('/'); // Redirect to home after login
-    }, 1500);
+    }
   };
 
   const handleBack = () => {
     navigate(-1);
   };
+
+  // Demo credentials for testing
+ 
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-[#e8f9f6] to-[#d1f2eb] flex items-center justify-center p-4">
@@ -54,6 +161,28 @@ const Login = () => {
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
+            {/* Success Message */}
+            {successMessage && (
+              <div className="bg-green-50 border border-green-200 rounded-lg p-4">
+                <div className="flex items-center space-x-2 text-green-800">
+                  <CheckCircle className="h-5 w-5" />
+                  <span className="text-sm font-medium">{successMessage}</span>
+                </div>
+              </div>
+            )}
+
+            {/* General Error Message */}
+            {errors.general && (
+              <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+                <div className="flex items-center space-x-2 text-red-800">
+                  <XCircle className="h-5 w-5" />
+                  <span className="text-sm font-medium">{errors.general}</span>
+                </div>
+              </div>
+            )}
+
+            
+
             <form onSubmit={handleSubmit} className="space-y-4">
               <div className="space-y-2">
                 <Label htmlFor="email" className="text-sm font-medium text-gray-700">
@@ -63,12 +192,18 @@ const Login = () => {
                   <Mail className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
                   <Input
                     id="email"
+                    name="email"
                     type="email"
                     placeholder="Enter your email"
-                    className="pl-10 h-11"
+                    className={`pl-10 h-11 ${errors.email ? 'border-red-500' : ''}`}
+                    value={formData.email}
+                    onChange={handleChange}
                     required
                   />
                 </div>
+                {errors.email && (
+                  <p className="text-red-500 text-xs">{errors.email}</p>
+                )}
               </div>
 
               <div className="space-y-2">
@@ -87,9 +222,12 @@ const Login = () => {
                   <Lock className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
                   <Input
                     id="password"
+                    name="password"
                     type={showPassword ? "text" : "password"}
                     placeholder="Enter your password"
-                    className="pl-10 pr-10 h-11"
+                    className={`pl-10 pr-10 h-11 ${errors.password ? 'border-red-500' : ''}`}
+                    value={formData.password}
+                    onChange={handleChange}
                     required
                   />
                   <Button
@@ -106,6 +244,9 @@ const Login = () => {
                     )}
                   </Button>
                 </div>
+                {errors.password && (
+                  <p className="text-red-500 text-xs">{errors.password}</p>
+                )}
               </div>
 
               <Button
@@ -136,8 +277,9 @@ const Login = () => {
               </div>
             </div>
 
-            <div className="grid grid-cols-2 gap-3">
-              <Button variant="outline" className="h-11" type="button">
+            {/* Only Google login - Twitter removed */}
+            <div className="flex justify-center">
+              <Button variant="outline" className="h-11 w-full max-w-xs" type="button">
                 <svg className="mr-2 h-4 w-4" viewBox="0 0 24 24">
                   <path
                     d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
@@ -156,20 +298,14 @@ const Login = () => {
                     fill="#EA4335"
                   />
                 </svg>
-                Google
-              </Button>
-              <Button variant="outline" className="h-11" type="button">
-                <svg className="mr-2 h-4 w-4" fill="currentColor" viewBox="0 0 24 24">
-                  <path d="M24 4.557c-.883.392-1.832.656-2.828.775 1.017-.609 1.798-1.574 2.165-2.724-.951.564-2.005.974-3.127 1.195-.897-.957-2.178-1.555-3.594-1.555-3.179 0-5.515 2.966-4.797 6.045-4.091-.205-7.719-2.165-10.148-5.144-1.29 2.213-.669 5.108 1.523 6.574-.806-.026-1.566-.247-2.229-.616-.054 2.281 1.581 4.415 3.949 4.89-.693.188-1.452.232-2.224.084.626 1.956 2.444 3.379 4.6 3.419-2.07 1.623-4.678 2.348-7.29 2.04 2.179 1.397 4.768 2.212 7.548 2.212 9.142 0 14.307-7.721 13.995-14.646.962-.695 1.797-1.562 2.457-2.549z"/>
-                </svg>
-                Twitter
+                Continue with Google
               </Button>
             </div>
 
             <div className="text-center text-sm text-gray-600">
               Don't have an account?{" "}
               <Link
-                to="/register"
+                to="/signup"
                 className="font-medium text-medical-600 hover:text-medical-700"
               >
                 Sign up
