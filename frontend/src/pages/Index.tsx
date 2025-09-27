@@ -8,11 +8,11 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { cn } from "@/lib/utils";
 import { useState, useEffect, useRef } from "react";
 import { useTokens } from "@/hooks/useTokens";
-import { useAuth } from "@/contexts/AuthContext"; // Import auth context
+import { useAuth } from "@/contexts/AuthContext";
 
 const Index = () => {
   const navigate = useNavigate();
-  const { user, logout } = useAuth(); // Get user and logout from auth context
+  const { user, logout } = useAuth();
   const [currency, setCurrency] = useState("INR");
   const { tokens, showPricing, setShowPricing } = useTokens();
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
@@ -33,6 +33,10 @@ const Index = () => {
     navigate('/login');
   };
 
+  const handleViewPlans = () => {
+    navigate('/plans');
+  };
+
   const handleLogout = () => {
     logout();
     setIsUserMenuOpen(false);
@@ -43,7 +47,6 @@ const Index = () => {
     return `${firstName.charAt(0)}${lastName.charAt(0)}`.toUpperCase();
   };
 
-  // Close user menu when clicking outside
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       if (userMenuRef.current && !userMenuRef.current.contains(event.target as Node)) {
@@ -105,15 +108,23 @@ const Index = () => {
                         onClick={() => handleMenuItemClick('/dashboard')}
                         className="flex items-center gap-3 w-full px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 rounded-md transition-colors"
                       >
-                        <User className="w-4 h-4" />
+                        <User className="w-4 w-4" />
                         Dashboard
+                      </button>
+                      
+                      <button
+                        onClick={() => handleMenuItemClick('/pricing')}
+                        className="flex items-center gap-3 w-full px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 rounded-md transition-colors"
+                      >
+                        <Crown className="w-4 w-4" />
+                        My Plans
                       </button>
                       
                       <button
                         onClick={() => handleMenuItemClick('/account')}
                         className="flex items-center gap-3 w-full px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 rounded-md transition-colors"
                       >
-                        <Settings className="w-4 h-4" />
+                        <Settings className="w-4 w-4" />
                         My Account
                       </button>
                       
@@ -122,7 +133,7 @@ const Index = () => {
                           onClick={handleLogout}
                           className="flex items-center gap-3 w-full px-3 py-2 text-sm text-red-600 hover:bg-red-50 rounded-md transition-colors"
                         >
-                          <LogOut className="w-4 h-4" />
+                          <LogOut className="w-4 w-4" />
                           Logout
                         </button>
                       </div>
@@ -141,173 +152,18 @@ const Index = () => {
               </Button>
             )}
 
-            <Dialog open={showPricing} onOpenChange={setShowPricing}>
-              <DialogTrigger asChild>
-                <Button variant="outline" className="flex items-center space-x-2">
-                  <Crown className="h-4 w-4" />
-                  <span>Pricing</span>
-                </Button>
-              </DialogTrigger>
-              <DialogContent className="sm:max-w-4xl max-h-[90vh] overflow-y-auto">
-                <DialogHeader>
-                  <DialogTitle className="text-2xl font-bold text-center">Choose Your Plan</DialogTitle>
-                </DialogHeader>
-                
-                <div className="space-y-6">
-                  {/* Currency Selector */}
-                  <div className="flex justify-center">
-                    <div className="flex items-center space-x-2">
-                      <Globe className="h-4 w-4 text-gray-500" />
-                      <Select value={currency} onValueChange={setCurrency}>
-                        <SelectTrigger className="w-32">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="INR">🇮🇳 INR</SelectItem>
-                          <SelectItem value="USD">🇺🇸 USD</SelectItem>
-                          <SelectItem value="EUR">🇪🇺 EUR</SelectItem>
-                          <SelectItem value="GBP">🇬🇧 GBP</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-                  </div>
-
-                  {/* Pricing Cards */}
-                  <div className="grid md:grid-cols-2 gap-6">
-                    {/* Monthly Plan */}
-                    <Card className="relative overflow-hidden border-2 hover:border-primary/50 transition-colors">
-                      <CardContent className="p-6">
-                        <div className="text-center space-y-4">
-                          <h3 className="text-xl font-semibold">Monthly Plan</h3>
-                          <div className="space-y-2">
-                            <div className="text-3xl font-bold text-primary">
-                              {currencies[currency as keyof typeof currencies].symbol}
-                              {currencies[currency as keyof typeof currencies].monthly}
-                            </div>
-                            <p className="text-sm text-muted-foreground">per month</p>
-                          </div>
-                          
-                          <ul className="space-y-2 text-sm">
-                            <li className="flex items-center">
-                              <Check className="h-4 w-4 text-green-500 mr-2" />
-                              AI Symptom Checker
-                            </li>
-                            <li className="flex items-center">
-                              <Check className="h-4 w-4 text-green-500 mr-2" />
-                              Disease Prediction Analysis
-                            </li>
-                            <li className="flex items-center">
-                              <Check className="h-4 w-4 text-green-500 mr-2" />
-                              Diet Evaluation & Planning
-                            </li>
-                            <li className="flex items-center">
-                              <Check className="h-4 w-4 text-green-500 mr-2" />
-                              Preventive Healthcare Tips
-                            </li>
-                            <li className="flex items-center">
-                              <Check className="h-4 w-4 text-green-500 mr-2" />
-                              Health Risk Predictor
-                            </li>
-                            <li className="flex items-center">
-                              <Check className="h-4 w-4 text-green-500 mr-2" />
-                              AI Veterinary Assistant
-                            </li>
-                            <li className="flex items-center">
-                              <Check className="h-4 w-4 text-green-500 mr-2" />
-                              Activity Level Assessment
-                            </li>
-                            <li className="flex items-center">
-                              <Check className="h-4 w-4 text-green-500 mr-2" />
-                              Digital Prescription Generator
-                            </li>
-                            <li className="flex items-center">
-                              <Check className="h-4 w-4 text-green-500 mr-2" />
-                              24/7 Support
-                            </li>
-                          </ul>
-                          
-                          <Button className="w-full" variant="default">
-                            Choose Monthly
-                          </Button>
-                        </div>
-                      </CardContent>
-                    </Card>
-
-                    {/* Yearly Plan */}
-                    <Card className="relative overflow-hidden border-2 border-primary shadow-lg">
-                      <div className="absolute top-0 left-0 right-0 bg-primary text-white text-center py-2 text-sm font-medium">
-                        Most Popular
-                      </div>
-                      <CardContent className="p-6 pt-12">
-                        <div className="text-center space-y-4">
-                          <h3 className="text-xl font-semibold">Yearly Plan</h3>
-                          <div className="space-y-2">
-                            <div className="text-3xl font-bold text-primary">
-                              {currencies[currency as keyof typeof currencies].symbol}
-                              {currencies[currency as keyof typeof currencies].yearly}
-                            </div>
-                            <p className="text-sm text-muted-foreground">per year</p>
-                            <p className="text-xs text-green-600 font-medium">Save 25%</p>
-                          </div>
-                          
-                          <ul className="space-y-2 text-sm">
-                            <li className="flex items-center">
-                              <Check className="h-4 w-4 text-green-500 mr-2" />
-                              AI Symptom Checker
-                            </li>
-                            <li className="flex items-center">
-                              <Check className="h-4 w-4 text-green-500 mr-2" />
-                              Disease Prediction Analysis
-                            </li>
-                            <li className="flex items-center">
-                              <Check className="h-4 w-4 text-green-500 mr-2" />
-                              Diet Evaluation & Planning
-                            </li>
-                            <li className="flex items-center">
-                              <Check className="h-4 w-4 text-green-500 mr-2" />
-                              Preventive Healthcare Tips
-                            </li>
-                            <li className="flex items-center">
-                              <Check className="h-4 w-4 text-green-500 mr-2" />
-                              Health Risk Predictor
-                            </li>
-                            <li className="flex items-center">
-                              <Check className="h-4 w-4 text-green-500 mr-2" />
-                              AI Veterinary Assistant
-                            </li>
-                            <li className="flex items-center">
-                              <Check className="h-4 w-4 text-green-500 mr-2" />
-                              Activity Level Assessment
-                            </li>
-                            <li className="flex items-center">
-                              <Check className="h-4 w-4 text-green-500 mr-2" />
-                              Digital Prescription Generator
-                            </li>
-                            <li className="flex items-center">
-                              <Check className="h-4 w-4 text-green-500 mr-2" />
-                              Advanced Health Analytics
-                            </li>
-                            <li className="flex items-center">
-                              <Check className="h-4 w-4 text-green-500 mr-2" />
-                              Priority Support & Updates
-                            </li>
-                          </ul>
-                          
-                          <Button className="w-full" variant="default">
-                            Choose Yearly
-                          </Button>
-                        </div>
-                      </CardContent>
-                    </Card>
-                  </div>
-                </div>
-              </DialogContent>
-            </Dialog>
+            {/* View Plans Button - Always visible */}
+            <Button 
+              onClick={handleViewPlans}
+              className="flex items-center space-x-2 bg-[#00BFA6] hover:bg-[#00A896] text-white"
+            >
+              <Crown className="h-4 w-4" />
+              <span>View Plans</span>
+            </Button>
           </div>
         </div>
       </div>
 
-      {/* Rest of your existing code remains the same */}
       {/* Hero Section */}
       <div className="relative overflow-hidden bg-[#e8f9f6] py-16 md:py-24">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -322,15 +178,46 @@ const Index = () => {
               </h1>
               <p className="text-xl text-gray-600 max-w-lg">
                 Get instant insights and personalized care recommendations for your animal using our advanced AI veterinary assistant.
+                Start with our free plan including 3 symptom checks!
               </p>
               
-              <Button 
-                variant="lightGreen" 
-                onClick={handleGetStarted}
-                className="text-white bg-[#00BFA6] hover:bg-[#00A896] rounded-md py-3 px-6 text-lg flex items-center mt-4"
-              >
-                Get Started <ArrowRight className="ml-2 h-5 w-5" />
-              </Button>
+              <div className="flex flex-col sm:flex-row gap-4 mt-6">
+                <Button 
+                  variant="lightGreen" 
+                  onClick={handleGetStarted}
+                  className="text-white bg-[#00BFA6] hover:bg-[#00A896] rounded-md py-3 px-6 text-lg flex items-center"
+                >
+                  Get Started Free <ArrowRight className="ml-2 h-5 w-5" />
+                </Button>
+                
+                <Button 
+                  variant="outline"
+                  onClick={handleViewPlans}
+                  className="border-[#00BFA6] text-[#00BFA6] hover:bg-[#00BFA6] hover:text-white rounded-md py-3 px-6 text-lg flex items-center"
+                >
+                  <Crown className="mr-2 h-5 w-5" />
+                  View All Plans
+                </Button>
+              </div>
+
+              {/* Free Plan Highlights */}
+              <div className="bg-white rounded-lg p-4 mt-6 border border-gray-200">
+                <h4 className="font-semibold text-gray-900 mb-2">Free Plan Includes:</h4>
+                <ul className="text-sm text-gray-600 space-y-1">
+                  <li className="flex items-center">
+                    <Check className="h-4 w-4 text-green-500 mr-2" />
+                    AI Symptom Checker (3 free uses)
+                  </li>
+                  <li className="flex items-center">
+                    <Check className="h-4 w-4 text-green-500 mr-2" />
+                    Basic health insights
+                  </li>
+                  <li className="flex items-center">
+                    <Check className="h-4 w-4 text-green-500 mr-2" />
+                    No credit card required
+                  </li>
+                </ul>
+              </div>
             </div>
 
             <div className="w-full md:w-1/2 animate-slideUp">
@@ -360,39 +247,63 @@ const Index = () => {
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
             <FeatureCard 
               title="Symptom Checker"
-              description="Analyze your animal's symptoms and get AI-powered insights on potential conditions."
+              description="Analyze your animal's symptoms and get AI-powered insights on potential conditions. 3 free uses included."
               link="/symptoms"
+              isFree={true}
             />
             
             <FeatureCard 
               title="Disease Prediction"
               description="Predict potential diseases based on symptoms and medical history."
               link="/disease-prediction"
+              isFree={false}
             />
             
             <FeatureCard 
               title="Diet Evaluation"
               description="Get personalized diet recommendations for your animal's optimal health."
               link="/diet-evaluation"
+              isFree={false}
             />
             
             <FeatureCard 
               title="Preventive Tips"
               description="Receive customized preventive healthcare tips for your animal."
               link="/preventive-tips"
+              isFree={false}
             />
             
             <FeatureCard 
               title="Risk Predictor"
               description="Assess your animal's risk factors for various health conditions."
               link="/risk-predictor"
+              isFree={false}
             />
             
             <FeatureCard 
               title="Vet Assistant"
               description="Connect with our AI vet assistant for immediate guidance."
               link="/vet"
+              isFree={false}
             />
+          </div>
+
+          {/* Upgrade CTA */}
+          <div className="text-center mt-12">
+            <div className="bg-white rounded-2xl p-8 shadow-lg border border-gray-200 max-w-2xl mx-auto">
+              <h3 className="text-2xl font-bold text-gray-900 mb-4">Ready for Unlimited Access?</h3>
+              <p className="text-gray-600 mb-6">
+                Upgrade to unlock all features including unlimited symptom checks, disease prediction, 
+                diet planning, and premium support.
+              </p>
+              <Button 
+                onClick={handleViewPlans}
+                className="bg-[#00BFA6] hover:bg-[#00A896] text-white px-8 py-3 text-lg"
+              >
+                <Crown className="mr-2 h-5 w-5" />
+                View Premium Plans
+              </Button>
+            </div>
           </div>
         </div>
       </div>
@@ -471,15 +382,27 @@ const Index = () => {
       <div className="bg-gradient-to-r from-medical-600 to-medical-700 py-16">
         <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
           <h2 className="text-3xl md:text-4xl font-bold text-white mb-6">Ready to improve your animal's health?</h2>
-          <p className="text-xl text-medical-100 mb-10 max-w-2xl mx-auto">
+          <p className="text-xl text-medical-100 mb-8 max-w-2xl mx-auto">
             Join thousands of animal owners who trust AI Vet for personalized health guidance and peace of mind.
           </p>
-          <Button 
-            onClick={handleGetStarted}
-            className="bg-white text-medical-700 hover:bg-gray-100 px-8 py-3 text-lg"
-          >
-            Get Started Now
-          </Button>
+          <div className="flex flex-col sm:flex-row gap-4 justify-center">
+            <Button 
+              onClick={handleGetStarted}
+              className="bg-white text-medical-700 hover:bg-gray-100 px-8 py-3 text-lg"
+            >
+              Start Free Trial
+            </Button>
+            <Button 
+              onClick={handleViewPlans}
+              variant="outline"
+              className="border-white text-white hover:bg-white hover:text-medical-700 px-8 py-3 text-lg"
+            >
+              View All Plans
+            </Button>
+          </div>
+          <p className="text-medical-200 mt-4 text-sm">
+            No credit card required • 3 free symptom checks included
+          </p>
         </div>
       </div>
       
@@ -495,7 +418,7 @@ const Index = () => {
           <div className="space-y-4">
             <h4 className="text-lg font-semibold">Services</h4>
             <div className="flex flex-col gap-2">
-              <Link to="/symptoms" className="text-gray-300 hover:text-white transition-colors">Symptoms</Link>
+              <Link to="/symptoms" className="text-gray-300 hover:text-white transition-colors">Symptoms Checker</Link>
               <Link to="/disease-prediction" className="text-gray-300 hover:text-white transition-colors">Disease Prediction</Link>
               <Link to="/risk-predictor" className="text-gray-300 hover:text-white transition-colors">Risk Predictor</Link>
             </div>
@@ -506,7 +429,7 @@ const Index = () => {
             <div className="flex flex-col gap-2">
               <Link to="/preventive-tips" className="text-gray-300 hover:text-white transition-colors">Preventive Tips</Link>
               <Link to="/diet-evaluation" className="text-gray-300 hover:text-white transition-colors">Diet Evaluation</Link>
-              <Link to="/activity-level" className="text-gray-300 hover:text-white transition-colors">Activity Level</Link>
+              <Link to="/pricing" className="text-gray-300 hover:text-white transition-colors">Pricing & Plans</Link>
             </div>
           </div>
 
@@ -515,17 +438,12 @@ const Index = () => {
             <div className="flex flex-col gap-2">
               <Link to="/signup" className="text-gray-300 hover:text-white transition-colors">Create Account</Link>
               <Link to="/login" className="text-gray-300 hover:text-white transition-colors">Login</Link>
-              <Link to="/symptoms" className="text-gray-300 hover:text-white transition-colors">Symptoms Checker</Link>
-              <Link to="/vet" className="text-gray-300 hover:text-white transition-colors">Chat with AI Vet</Link>
+              <Link to="/pricing" className="text-gray-300 hover:text-white transition-colors">View Plans</Link>
             </div>
           </div>
         </div>
         
         <div className="max-w-7xl mx-auto mt-12 pt-8 border-t border-gray-800">
-          <div className="text-center mb-6 space-x-4 flex flex-wrap justify-center gap-2">
-            {/* Policy buttons remain the same */}
-          </div>
-          
           <div className="text-center text-gray-500 text-sm">
             <p>© {new Date().getFullYear()} AI Vet. All rights reserved.</p>
             <p className="mt-2">This is an AI-powered tool and should not replace professional veterinary advice.</p>
@@ -536,12 +454,23 @@ const Index = () => {
   );
 };
 
-// Your existing FeatureCard, BenefitCard, TestimonialCard components remain the same
-const FeatureCard = ({ title, description, link }: { title: string; description: string; link: string }) => {
+// Updated FeatureCard with free/premium indicators
+const FeatureCard = ({ title, description, link, isFree }: { title: string; description: string; link: string; isFree: boolean }) => {
   return (
     <Card className="overflow-hidden hover:shadow-lg transition-all duration-300 hover:-translate-y-1 bg-white h-full">
       <CardContent className="p-6">
-        <h3 className="text-xl font-semibold mb-3 text-medical-700">{title}</h3>
+        <div className="flex items-center justify-between mb-3">
+          <h3 className="text-xl font-semibold text-medical-700">{title}</h3>
+          {isFree ? (
+            <span className="bg-green-100 text-green-800 text-xs font-medium px-2 py-1 rounded-full">
+              Free
+            </span>
+          ) : (
+            <span className="bg-blue-100 text-blue-800 text-xs font-medium px-2 py-1 rounded-full">
+              Premium
+            </span>
+          )}
+        </div>
         <p className="text-gray-600 mb-4">{description}</p>
         <Link to={link}>
           <Button variant="ghost" className="group text-medical-600 p-0 hover:text-medical-700 hover:bg-transparent">

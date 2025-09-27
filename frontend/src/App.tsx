@@ -19,6 +19,7 @@ import AIChatButton from "./components/AIChatButton";
 import Login from "./pages/Login";
 import Signup from "./pages/Signup";
 import { AuthProvider } from './contexts/AuthContext';
+import Pricing from "./components/Pricing";
 
 function App() {
   const queryClient = new QueryClient();
@@ -44,6 +45,7 @@ function App() {
             <Route path="/prescription" element={<Prescription />} />
             <Route path="/activity-level" element={<ActivityLevel />} />
             <Route path="/vet" element={<VetAssistant />} />
+            <Route path="/plans" element={<Pricing />} />
             <Route path="*" element={<NotFound />} />
           </Routes>
           <AIChatButton />
