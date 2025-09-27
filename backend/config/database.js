@@ -49,12 +49,31 @@ CREATE TABLE IF NOT EXISTS user_sessions (
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
+-- Subscriptions table
+CREATE TABLE IF NOT EXISTS subscriptions (
+  sub_id SERIAL PRIMARY KEY,
+  user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
+  sub_plan VARCHAR(50) NOT NULL CHECK (sub_plan IN ('monthly', 'yearly', 'free')),
+  sub_includes JSONB DEFAULT '[]',
+  transaction_id VARCHAR(100) UNIQUE,
+  transaction_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  status VARCHAR(20) DEFAULT 'active' CHECK (status IN ('active', 'canceled', 'expired', 'pending')),
+  start_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  end_date TIMESTAMP,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
 -- Indexes
 CREATE INDEX IF NOT EXISTS idx_users_email ON users(email);
 CREATE INDEX IF NOT EXISTS idx_users_phone ON users(phone);
 CREATE INDEX IF NOT EXISTS idx_user_tokens_token ON user_tokens(token);
 CREATE INDEX IF NOT EXISTS idx_user_tokens_user_id ON user_tokens(user_id);
 CREATE INDEX IF NOT EXISTS idx_user_sessions_user_id ON user_sessions(user_id);
+CREATE INDEX IF NOT EXISTS idx_subscriptions_user_id ON subscriptions(user_id);
+CREATE INDEX IF NOT EXISTS idx_subscriptions_status ON subscriptions(status);
+CREATE INDEX IF NOT EXISTS idx_subscriptions_end_date ON subscriptions(end_date);
+CREATE INDEX IF NOT EXISTS idx_subscriptions_transaction_id ON subscriptions(transaction_id);
 
 -- Function to update updated_at timestamp
 CREATE OR REPLACE FUNCTION update_updated_at_column()
@@ -65,12 +84,23 @@ BEGIN
 END;
 $$ language 'plpgsql';
 
--- Trigger
+-- Trigger for users table
 DO $$ 
 BEGIN
     IF NOT EXISTS (SELECT 1 FROM pg_trigger WHERE tgname = 'update_users_updated_at') THEN
         CREATE TRIGGER update_users_updated_at 
             BEFORE UPDATE ON users 
+            FOR EACH ROW 
+            EXECUTE FUNCTION update_updated_at_column();
+    END IF;
+END $$;
+
+-- Trigger for subscriptions table
+DO $$ 
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pg_trigger WHERE tgname = 'update_subscriptions_updated_at') THEN
+        CREATE TRIGGER update_subscriptions_updated_at 
+            BEFORE UPDATE ON subscriptions 
             FOR EACH ROW 
             EXECUTE FUNCTION update_updated_at_column();
     END IF;
@@ -100,6 +130,50 @@ const initializeDatabase = async () => {
       console.log('✅ Database schema created successfully!');
     } else {
       console.log('✅ Database schema already exists');
+      
+      // Check if subscriptions table exists, if not create it
+      const subscriptionsCheck = await client.query(`
+        SELECT EXISTS (
+          SELECT FROM information_schema.tables 
+          WHERE table_schema = 'public' 
+          AND table_name = 'subscriptions'
+        );
+      `);
+      
+      const subscriptionsTableExists = subscriptionsCheck.rows[0].exists;
+      
+      if (!subscriptionsTableExists) {
+        console.log('📦 Adding subscriptions table...');
+        // Extract only the subscriptions table creation part
+        const subscriptionsSQL = `
+          CREATE TABLE subscriptions (
+            sub_id SERIAL PRIMARY KEY,
+            user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
+            sub_plan VARCHAR(50) NOT NULL CHECK (sub_plan IN ('monthly', 'yearly', 'free')),
+            sub_includes JSONB DEFAULT '[]',
+            transaction_id VARCHAR(100) UNIQUE,
+            transaction_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            status VARCHAR(20) DEFAULT 'active' CHECK (status IN ('active', 'canceled', 'expired', 'pending')),
+            start_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            end_date TIMESTAMP,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+          );
+          
+          CREATE INDEX idx_subscriptions_user_id ON subscriptions(user_id);
+          CREATE INDEX idx_subscriptions_status ON subscriptions(status);
+          CREATE INDEX idx_subscriptions_end_date ON subscriptions(end_date);
+          CREATE INDEX idx_subscriptions_transaction_id ON subscriptions(transaction_id);
+          
+          CREATE TRIGGER update_subscriptions_updated_at 
+            BEFORE UPDATE ON subscriptions 
+            FOR EACH ROW 
+            EXECUTE FUNCTION update_updated_at_column();
+        `;
+        
+        await client.query(subscriptionsSQL);
+        console.log('✅ Subscriptions table added successfully!');
+      }
     }
     
   } catch (error) {
