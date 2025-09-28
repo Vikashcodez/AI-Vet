@@ -58,8 +58,8 @@ CREATE TABLE IF NOT EXISTS subscriptions (
   transaction_id VARCHAR(100) UNIQUE,
   transaction_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   status VARCHAR(20) DEFAULT 'active' CHECK (status IN ('active', 'canceled', 'expired', 'pending')),
-  start_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-  end_date TIMESTAMP,
+  start_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,  -- Already exists
+  end_date TIMESTAMP,                             -- Already exists
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );

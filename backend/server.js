@@ -5,7 +5,8 @@ const rateLimit = require('express-rate-limit');
 require('dotenv').config();
 
 const authRoutes = require('./routes/auth');
-const pool = require('./config/database'); // Direct import
+const subscriptionRoutes = require('./routes/subscriptions'); // Add this line
+const pool = require('./config/database');
 const { testConnection } = require('./config/database');
 
 const app = express();
@@ -67,10 +68,11 @@ app.get('/health', async (req, res) => {
   }
 });
 
-// API routes
+// API routes - IMPORTANT: Place ALL routes BEFORE 404 handler
 app.use('/api/auth', authRoutes);
+app.use('/api/subscriptions', subscriptionRoutes); // Moved before 404 handler
 
-// 404 handler
+// 404 handler - This should be AFTER all your routes
 app.use((req, res, next) => {
   res.status(404).json({
     success: false,
@@ -100,6 +102,7 @@ const startServer = async () => {
       console.log(`🌐 Client URL: ${process.env.CLIENT_URL}`);
       console.log(`🗄️  Database: Neon PostgreSQL`);
       console.log(`🔗 Health check: http://localhost:${PORT}/health`);
+      console.log(`💰 Subscription routes: /api/subscriptions`);
     });
   } catch (error) {
     console.error('❌ Failed to start server:', error.message);
