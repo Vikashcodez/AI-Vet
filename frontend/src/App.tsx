@@ -20,6 +20,7 @@ import Login from "./pages/Login";
 import Signup from "./pages/Signup";
 import { AuthProvider } from './contexts/AuthContext';
 import Pricing from "./components/Pricing";
+import AdminDashboard from "./pages/adminDashboard";
 
 function App() {
   const queryClient = new QueryClient();
@@ -47,6 +48,7 @@ function App() {
             <Route path="/vet" element={<VetAssistant />} />
             <Route path="/plans" element={<Pricing />} />
             <Route path="*" element={<NotFound />} />
+            <Route path="/admin/dashboard" element={<AdminDashboard />} />
           </Routes>
           <AIChatButton />
         </BrowserRouter>

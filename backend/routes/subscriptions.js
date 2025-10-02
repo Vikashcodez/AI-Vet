@@ -5,11 +5,13 @@ const {
   verifyPayment,
   getCurrentSubscription,
   cancelSubscription,
-  getSubscriptionByUserId
+  getSubscriptionByUserId,
+  getAllSubscriptions
 } = require('../controllers/subscriptionController');
 const { authenticateToken } = require('../middleware/auth');
 
 // Protected routes
+router.get('/', getAllSubscriptions);
 router.post('/create-order', authenticateToken, createSubscriptionOrder);
 router.post('/verify-payment', authenticateToken, verifyPayment);
 router.get('/current', authenticateToken, getCurrentSubscription);

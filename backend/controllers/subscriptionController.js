@@ -394,10 +394,108 @@ const getSubscriptionByUserId = async (req, res) => {
   }
 };
 
+// Get all subscriptions
+const getAllSubscriptions = async (req, res) => {
+  const client = await pool.connect();
+  
+  try {
+    const { page = 1, limit = 10, status, planType } = req.query;
+    const offset = (page - 1) * limit;
+
+    let query = `
+      SELECT s.*, u.first_name, u.last_name, u.email, u.phone 
+      FROM subscriptions s 
+      JOIN users u ON s.user_id = u.id 
+    `;
+    
+    let countQuery = `
+      SELECT COUNT(*) 
+      FROM subscriptions s 
+      JOIN users u ON s.user_id = u.id 
+    `;
+
+    const queryParams = [];
+    const whereConditions = [];
+
+    // Add filters if provided
+    if (status) {
+      whereConditions.push(`s.status = $${queryParams.length + 1}`);
+      queryParams.push(status);
+    }
+
+    if (planType) {
+      whereConditions.push(`s.sub_plan = $${queryParams.length + 1}`);
+      queryParams.push(planType);
+    }
+
+    // Add WHERE clause if filters exist
+    if (whereConditions.length > 0) {
+      const whereClause = `WHERE ${whereConditions.join(' AND ')}`;
+      query += whereClause;
+      countQuery += whereClause;
+    }
+
+    // Add ordering and pagination
+    query += ` ORDER BY s.created_at DESC LIMIT $${queryParams.length + 1} OFFSET $${queryParams.length + 2}`;
+    queryParams.push(limit, offset);
+
+    // Execute queries
+    const subscriptionsResult = await client.query(query, queryParams);
+    const countResult = await client.query(countQuery, queryParams.slice(0, -2)); // Remove limit and offset for count
+
+    const totalSubscriptions = parseInt(countResult.rows[0].count);
+    const totalPages = Math.ceil(totalSubscriptions / limit);
+
+    const subscriptions = subscriptionsResult.rows.map(sub => ({
+      id: sub.sub_id,
+      userId: sub.user_id,
+      user: {
+        firstName: sub.first_name,
+        lastName: sub.last_name,
+        email: sub.email,
+        phone: sub.phone
+      },
+      plan: sub.sub_plan,
+      includes: sub.sub_includes,
+      transactionId: sub.transaction_id,
+      transactionDate: sub.transaction_date,
+      status: sub.status,
+      startDate: sub.start_date,
+      endDate: sub.end_date,
+      createdAt: sub.created_at,
+      updatedAt: sub.updated_at
+    }));
+
+    res.json({
+      success: true,
+      data: {
+        subscriptions,
+        pagination: {
+          currentPage: parseInt(page),
+          totalPages,
+          totalSubscriptions,
+          hasNext: page < totalPages,
+          hasPrev: page > 1
+        }
+      }
+    });
+
+  } catch (error) {
+    console.error('Get all subscriptions error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to fetch subscriptions'
+    });
+  } finally {
+    client.release();
+  }
+};
+
 module.exports = {
   createSubscriptionOrder,
   verifyPayment,
   getCurrentSubscription,
   getSubscriptionByUserId,
-  cancelSubscription
+  cancelSubscription,
+  getAllSubscriptions
 };
