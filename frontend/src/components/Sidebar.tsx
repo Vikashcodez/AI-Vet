@@ -9,7 +9,8 @@ import {
   Cat,
   Menu,
   Stethoscope,
-  LogIn
+  LogIn,
+  Crown
 } from "lucide-react";
 import {
   Sidebar,
@@ -32,27 +33,68 @@ interface UserData {
   phone?: string;
 }
 
+interface Subscription {
+  id: number;
+  plan: string;
+  startDate: string;
+  endDate: string;
+  status: string;
+  includes: string[];
+}
+
 export default function MedicalSidebar() {
   const location = useLocation();
   const navigate = useNavigate();
   const currentPath = location.pathname;
   const [user, setUser] = useState<UserData | null>(null);
+  const [subscription, setSubscription] = useState<Subscription | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
 
-  // Check if user is logged in on component mount
+  // Check if user is logged in and fetch subscription
   useEffect(() => {
-    const checkAuthStatus = () => {
+    const checkAuthStatus = async () => {
       try {
         const token = localStorage.getItem('authToken');
         const userData = localStorage.getItem('user');
         
         if (token && userData) {
-          setUser(JSON.parse(userData));
+          const userObj = JSON.parse(userData);
+          setUser(userObj);
+          
+          // Fetch user subscription
+          await fetchUserSubscription(userObj.id);
         } else {
           setUser(null);
+          setSubscription(null);
         }
       } catch (error) {
         console.error('Error checking auth status:', error);
         setUser(null);
+        setSubscription(null);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    const fetchUserSubscription = async (userId: number) => {
+      try {
+        const response = await fetch(`http://localhost:5000/api/subscriptions/user/${userId}`, {
+          method: 'GET',
+          headers: {
+            'Authorization': `Bearer ${localStorage.getItem('authToken')}`
+          }
+        });
+
+        const data = await response.json();
+
+        if (data.success && data.data && data.data.subscription) {
+          setSubscription(data.data.subscription);
+        } else {
+          setSubscription(null);
+        }
+      } catch (error) {
+        console.error('Error fetching subscription:', error);
+        setSubscription(null);
       }
     };
 
@@ -74,12 +116,28 @@ export default function MedicalSidebar() {
     
     // Update state
     setUser(null);
+    setSubscription(null);
     
     // Redirect to home page
     navigate('/');
+  };
+
+  // Check if subscription is active and valid
+  const isSubscriptionActive = () => {
+    if (!subscription) return false;
     
-    // Optional: Show logout message
-    console.log('User logged out successfully');
+    const now = new Date();
+    const endDate = new Date(subscription.endDate);
+    return subscription.status === 'active' && now < endDate;
+  };
+
+  // Check if feature should be enabled
+  const isFeatureEnabled = (featureIndex: number) => {
+    // First feature (Symptom Checker) is always enabled for free users (3 uses)
+    if (featureIndex === 0) return true;
+    
+    // All other features require active subscription
+    return isSubscriptionActive();
   };
 
   const medicalServices = [
@@ -88,63 +146,81 @@ export default function MedicalSidebar() {
       path: "/symptoms",
       icon: FileText,
       active: currentPath === "/symptoms",
-      description: "Analyze symptoms and suggest possible illness"
+      description: "Analyze symptoms and suggest possible illness",
+      isFree: true
     },
     {
       title: "Disease Prediction",
       path: "/disease-prediction",
       icon: Shield,
       active: currentPath === "/disease-prediction",
-      description: "Predict future health risks based on current symptoms"
+      description: "Predict future health risks based on current symptoms",
+      isFree: false
     },
     {
       title: "Future Risk Predictor",
       path: "/risk-predictor",
       icon: Activity,
       active: currentPath === "/risk-predictor",
-      description: "Analyze potential health risks over time"
+      description: "Analyze potential health risks over time",
+      isFree: false
     },
     {
       title: "Preventive Tips",
       path: "/preventive-tips",
       icon: Shield,
       active: currentPath === "/preventive-tips",
-      description: "Daily care advice to avoid problems"
+      description: "Daily care advice to avoid problems",
+      isFree: false
     },
     {
       title: "Diet Evaluation",
       path: "/diet-evaluation",
       icon: Apple,
       active: currentPath === "/diet-evaluation",
-      description: "Evaluate current diet for health issues"
+      description: "Evaluate current diet for health issues",
+      isFree: false
     },
     {
       title: "Customized Diet Plan",
       path: "/diet-plan",
       icon: Apple,
       active: currentPath === "/diet-plan",
-      description: "Recommend healthy, balanced diet options"
+      description: "Recommend healthy, balanced diet options",
+      isFree: false
     },
     {
       title: "Prescription Generator",
       path: "/prescription",
       icon: Pill,
-      active: currentPath === "/prescription"
+      active: currentPath === "/prescription",
+      isFree: false
     },
     {
       title: "Activity Level Advice",
       path: "/activity-level",
       icon: Activity,
       active: currentPath === "/activity-level",
-      description: "Suggests rest or play based on condition"
+      description: "Suggests rest or play based on condition",
+      isFree: false
     },
     {
       title: "Veterinary Assistant",
       path: "/vet",
       icon: Cat,
-      active: currentPath === "/vet"
+      active: currentPath === "/vet",
+      isFree: false
     }
   ];
+
+  const handleFeatureClick = (service: any, index: number) => {
+    if (!isFeatureEnabled(index)) {
+      alert('This feature requires a premium subscription. Please upgrade to access all features.');
+      navigate('/pricing');
+      return;
+    }
+    navigate(service.path);
+  };
 
   return (
     <Sidebar variant="floating" className="border-r border-gray-200" collapsible="icon">
@@ -155,30 +231,93 @@ export default function MedicalSidebar() {
           </div>
           <span className="text-xl font-bold text-gray-800">AI-Vet</span>
         </Link>
+        
+        {/* Subscription Status Badge */}
+        {user && (
+          <div className="mt-2 text-xs">
+            {isSubscriptionActive() ? (
+              <div className="flex items-center gap-1 bg-green-100 text-green-800 px-2 py-1 rounded-full">
+                <Crown className="w-3 h-3" />
+                <span>Premium ({subscription?.plan})</span>
+              </div>
+            ) : (
+              <div className="bg-gray-100 text-gray-600 px-2 py-1 rounded-full">
+                Free Plan
+              </div>
+            )}
+          </div>
+        )}
       </SidebarHeader>
       
       <SidebarContent className="flex flex-col h-full">
         <div className="flex-1">
           <SidebarGroup>
-            <SidebarGroupLabel className="text-gray-500 font-medium">MEDICAL SERVICES</SidebarGroupLabel>
+            <SidebarGroupLabel className="text-gray-500 font-medium">
+              MEDICAL SERVICES
+              {!isSubscriptionActive() && user && (
+                <span className="text-xs text-orange-600 ml-2">
+                  (Upgrade for full access)
+                </span>
+              )}
+            </SidebarGroupLabel>
             <SidebarMenu>
-              {medicalServices.map((service) => (
+              {medicalServices.map((service, index) => (
                 <SidebarMenuItem key={service.title}>
                   <SidebarMenuButton 
                     asChild 
                     isActive={service.active}
-                    tooltip={service.description || service.title}
-                    className="md:truncate"
+                    tooltip={
+                      isFeatureEnabled(index) 
+                        ? service.description || service.title
+                        : "Premium feature - Upgrade to access"
+                    }
+                    className={`md:truncate ${!isFeatureEnabled(index) ? 'opacity-60' : ''}`}
+                    disabled={!isFeatureEnabled(index)}
                   >
-                    <Link to={service.path} className="flex items-center gap-2">
+                    <div 
+                      onClick={() => handleFeatureClick(service, index)}
+                      className={`flex items-center gap-2 w-full ${
+                        isFeatureEnabled(index) 
+                          ? 'cursor-pointer hover:bg-gray-50' 
+                          : 'cursor-not-allowed'
+                      }`}
+                    >
                       <service.icon size={18} />
-                      <span>{service.title}</span>
-                    </Link>
+                      <span className="flex-1">{service.title}</span>
+                      
+                      {/* Premium Badge for locked features */}
+                      {!isFeatureEnabled(index) && index > 0 && (
+                        <Crown className="w-3 h-3 text-yellow-500 flex-shrink-0" />
+                      )}
+                      
+                      {/* Free Badge for free features */}
+                      {service.isFree && (
+                        <span className="text-xs bg-green-100 text-green-800 px-1 rounded flex-shrink-0">
+                          Free
+                        </span>
+                      )}
+                    </div>
                   </SidebarMenuButton>
                 </SidebarMenuItem>
               ))}
             </SidebarMenu>
           </SidebarGroup>
+
+          {/* Upgrade Prompt */}
+          {user && !isSubscriptionActive() && (
+            <div className="p-4 border-t border-gray-200">
+              <div className="bg-gradient-to-r from-[#00BFA6] to-[#00A896] rounded-lg p-3 text-white text-center">
+                <Crown className="w-4 h-4 mx-auto mb-1" />
+                <p className="text-xs font-medium mb-2">Unlock All Features</p>
+                <button 
+                  onClick={() => navigate('/pricing')}
+                  className="bg-white text-[#00BFA6] text-xs font-medium px-3 py-1 rounded-full hover:bg-gray-100 transition-colors"
+                >
+                  Upgrade Now
+                </button>
+              </div>
+            </div>
+          )}
         </div>
 
         {/* User Section at the bottom */}
@@ -195,11 +334,32 @@ export function MobileSidebarButton() {
   const location = useLocation();
   const currentPath = location.pathname;
   const [user, setUser] = useState<any>(null);
+  const [subscription, setSubscription] = useState<any>(null);
 
   useEffect(() => {
     const userData = localStorage.getItem('user');
     if (userData) {
-      setUser(JSON.parse(userData));
+      const userObj = JSON.parse(userData);
+      setUser(userObj);
+      
+      // Fetch subscription for mobile header badge
+      const fetchSubscription = async () => {
+        try {
+          const response = await fetch(`http://localhost:5000/api/subscriptions/user/${userObj.id}`, {
+            headers: {
+              'Authorization': `Bearer ${localStorage.getItem('authToken')}`
+            }
+          });
+          const data = await response.json();
+          if (data.success && data.data?.subscription) {
+            setSubscription(data.data.subscription);
+          }
+        } catch (error) {
+          console.error('Error fetching subscription:', error);
+        }
+      };
+      
+      fetchSubscription();
     }
   }, []);
 
@@ -227,6 +387,13 @@ export function MobileSidebarButton() {
     return `${user.firstName?.charAt(0)}${user.lastName?.charAt(0)}`.toUpperCase();
   };
 
+  const isSubscriptionActive = () => {
+    if (!subscription) return false;
+    const now = new Date();
+    const endDate = new Date(subscription.endDate);
+    return subscription.status === 'active' && now < endDate;
+  };
+
   return (
     <div className="fixed top-0 left-0 right-0 z-50 md:hidden flex items-center justify-between bg-white p-3 border-b border-gray-200 shadow-sm">
       <div className="flex items-center">
@@ -237,13 +404,34 @@ export function MobileSidebarButton() {
         >
           <Menu size={20} />
         </button>
-        <h1 className="ml-3 text-lg font-medium text-gray-800">{getCurrentService()}</h1>
+        <div className="ml-3">
+          <h1 className="text-lg font-medium text-gray-800">{getCurrentService()}</h1>
+          {user && (
+            <div className="text-xs text-gray-500">
+              {isSubscriptionActive() ? (
+                <span className="text-green-600">● Premium</span>
+              ) : (
+                <span className="text-gray-400">● Free Plan</span>
+              )}
+            </div>
+          )}
+        </div>
       </div>
       
       {/* Mobile user avatar */}
       {user ? (
-        <div className="w-8 h-8 rounded-full bg-gradient-to-r from-[#00BFA6] to-[#00A896] flex items-center justify-center text-white text-sm font-medium">
-          {getUserInitials()}
+        <div className="flex items-center gap-2">
+          {!isSubscriptionActive() && (
+            <button 
+              onClick={() => navigate('/pricing')}
+              className="bg-[#00BFA6] text-white text-xs px-2 py-1 rounded-full"
+            >
+              Upgrade
+            </button>
+          )}
+          <div className="w-8 h-8 rounded-full bg-gradient-to-r from-[#00BFA6] to-[#00A896] flex items-center justify-center text-white text-sm font-medium">
+            {getUserInitials()}
+          </div>
         </div>
       ) : (
         <button 

@@ -332,10 +332,72 @@ const cancelSubscription = async (req, res) => {
     client.release();
   }
 };
+// Get subscription by user ID
+const getSubscriptionByUserId = async (req, res) => {
+  const client = await pool.connect();
+  
+  try {
+    const userId = req.params.userId;
+
+    const subscriptionResult = await client.query(
+      `SELECT s.*, u.first_name, u.last_name, u.email 
+       FROM subscriptions s 
+       JOIN users u ON s.user_id = u.id 
+       WHERE s.user_id = $1 
+       ORDER BY s.created_at DESC 
+       LIMIT 1`,
+      [userId]
+    );
+
+    if (subscriptionResult.rows.length === 0) {
+      return res.json({
+        success: true,
+        message: 'No subscription found for this user',
+        data: null
+      });
+    }
+
+    const subscription = subscriptionResult.rows[0];
+    
+    res.json({
+      success: true,
+      data: {
+        subscription: {
+          id: subscription.sub_id,
+          userId: subscription.user_id,
+          plan: subscription.sub_plan,
+          includes: subscription.sub_includes,
+          transactionId: subscription.transaction_id,
+          transactionDate: subscription.transaction_date,
+          status: subscription.status,
+          startDate: subscription.start_date,
+          endDate: subscription.end_date,
+          createdAt: subscription.created_at,
+          updatedAt: subscription.updated_at
+        },
+        user: {
+          firstName: subscription.first_name,
+          lastName: subscription.last_name,
+          email: subscription.email
+        }
+      }
+    });
+
+  } catch (error) {
+    console.error('Get subscription by user ID error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to get subscription details'
+    });
+  } finally {
+    client.release();
+  }
+};
 
 module.exports = {
   createSubscriptionOrder,
   verifyPayment,
   getCurrentSubscription,
+  getSubscriptionByUserId,
   cancelSubscription
 };

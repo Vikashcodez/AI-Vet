@@ -92,7 +92,36 @@ const loginUser = async (req, res) => {
   try {
     const { email, password } = req.body;
 
-    // Find user by email
+    // Check if it's admin login
+    if (email === process.env.ADMIN_EMAIL) {
+      if (password === process.env.ADMIN_PASSWORD) {
+        // Generate JWT token for admin
+        const token = generateToken('admin');
+        
+        return res.json({
+          success: true,
+          message: 'Admin login successful',
+          data: {
+            user: {
+              id: 'admin',
+              firstName: 'Admin',
+              lastName: 'User',
+              email: process.env.ADMIN_EMAIL,
+              phone: null,
+              role: 'admin'
+            },
+            token
+          }
+        });
+      } else {
+        return res.status(401).json({
+          success: false,
+          message: 'Invalid admin credentials'
+        });
+      }
+    }
+
+    // Existing normal user login flow
     const userResult = await client.query(
       `SELECT id, first_name, last_name, email, phone, password_hash, is_active 
        FROM users WHERE email = $1`,
@@ -143,7 +172,8 @@ const loginUser = async (req, res) => {
           firstName: user.first_name,
           lastName: user.last_name,
           email: user.email,
-          phone: user.phone
+          phone: user.phone,
+          role: 'user'
         },
         token
       }
@@ -174,7 +204,8 @@ const getCurrentUser = async (req, res) => {
           firstName: req.user.first_name,
           lastName: req.user.last_name,
           email: req.user.email,
-          phone: req.user.phone
+          phone: req.user.phone,
+          role: req.user.role || 'user'
         }
       }
     });
@@ -188,9 +219,6 @@ const getCurrentUser = async (req, res) => {
     client.release();
   }
 };
-
-// Update the auth middleware to use proper connection
-const { authenticateToken } = require('../middleware/auth');
 
 module.exports = {
   registerUser,

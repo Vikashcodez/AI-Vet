@@ -100,12 +100,25 @@ const Login = () => {
         // Use the AuthContext login function instead of direct localStorage
         if (data.data?.token && data.data?.user) {
           login(data.data.user, data.data.token);
+          
+          // Check if user is admin and redirect accordingly
+          if (data.data.user.role === 'admin') {
+            // Redirect to admin dashboard
+            setTimeout(() => {
+              navigate('/admin/dashboard');
+            }, 1000);
+          } else {
+            // Redirect to symptoms for regular users
+            setTimeout(() => {
+              navigate('/symptoms');
+            }, 1000);
+          }
+        } else {
+          // Fallback redirect if user data is missing
+          setTimeout(() => {
+            navigate('/symptoms');
+          }, 1000);
         }
-
-        // Redirect to symptoms after 1 second
-        setTimeout(() => {
-          navigate('/symptoms');
-        }, 1000);
       } else {
         // Handle backend validation errors
         if (data.errors && Array.isArray(data.errors)) {
@@ -132,7 +145,6 @@ const Login = () => {
     navigate(-1);
   };
 
- 
   return (
     <div className="min-h-screen bg-gradient-to-br from-[#e8f9f6] to-[#d1f2eb] flex items-center justify-center p-4">
       <div className="max-w-md w-full space-y-8">
@@ -179,8 +191,6 @@ const Login = () => {
                 </div>
               </div>
             )}
-
-           
 
             <form onSubmit={handleSubmit} className="space-y-4">
               <div className="space-y-2">

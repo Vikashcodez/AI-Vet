@@ -18,7 +18,20 @@ const authenticateToken = async (req, res, next) => {
 
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
     
-    // Check if user exists and is active
+    // Check if it's admin
+    if (decoded.userId === 'admin') {
+      req.user = {
+        id: 'admin',
+        email: process.env.ADMIN_EMAIL,
+        first_name: 'Admin',
+        last_name: 'User',
+        phone: null,
+        role: 'admin'
+      };
+      return next();
+    }
+
+    // Existing user check
     const userResult = await client.query(
       'SELECT id, email, first_name, last_name, phone, is_active FROM users WHERE id = $1',
       [decoded.userId]
@@ -31,7 +44,7 @@ const authenticateToken = async (req, res, next) => {
       });
     }
 
-    req.user = userResult.rows[0];
+    req.user = { ...userResult.rows[0], role: 'user' };
     next();
   } catch (error) {
     return res.status(403).json({

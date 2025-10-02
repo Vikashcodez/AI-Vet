@@ -2,8 +2,8 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Check, Crown, Globe, Loader2, CreditCard, Shield } from "lucide-react";
-import { useState } from "react";
+import { Check, Crown, Globe, Loader2, CreditCard, Shield, Calendar, UserCheck } from "lucide-react";
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 
@@ -14,12 +14,23 @@ declare global {
   }
 }
 
+interface Subscription {
+  id: number;
+  plan: string;
+  startDate: string;
+  endDate: string;
+  status: string;
+  includes: string[];
+}
+
 const Pricing = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
   const [currency, setCurrency] = useState("INR");
   const [isProcessing, setIsProcessing] = useState(false);
   const [selectedPlan, setSelectedPlan] = useState<string | null>(null);
+  const [userSubscription, setUserSubscription] = useState<Subscription | null>(null);
+  const [isLoadingSubscription, setIsLoadingSubscription] = useState(true);
 
   const currencies = {
     INR: { symbol: "₹", monthly: 399, yearly: 4500 },
@@ -44,6 +55,37 @@ const Pricing = () => {
     }
   };
 
+  // Fetch user subscription
+  const fetchUserSubscription = async () => {
+    if (!user) {
+      setIsLoadingSubscription(false);
+      return;
+    }
+
+    try {
+      const response = await fetch(`http://localhost:5000/api/subscriptions/user/${user.id}`, {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('authToken')}`
+        }
+      });
+
+      const data = await response.json();
+
+      if (data.success && data.data && data.data.subscription) {
+        setUserSubscription(data.data.subscription);
+      }
+    } catch (error) {
+      console.error('Error fetching subscription:', error);
+    } finally {
+      setIsLoadingSubscription(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchUserSubscription();
+  }, [user]);
+
   const handleGetStarted = () => {
     navigate('/symptoms');
   };
@@ -67,6 +109,11 @@ const Pricing = () => {
     if (!user) {
       alert('Please login to subscribe to a plan');
       navigate('/login');
+      return;
+    }
+
+    if (userSubscription) {
+      alert('You already have an active subscription. Please manage your subscription from your account.');
       return;
     }
 
@@ -130,6 +177,8 @@ const Pricing = () => {
 
           if (verifyData.success) {
             alert('🎉 Payment successful! Your subscription is now active.');
+            // Refresh subscription data
+            await fetchUserSubscription();
             // Redirect to dashboard or refresh page
             window.location.href = '/dashboard';
           } else {
@@ -169,17 +218,42 @@ const Pricing = () => {
     }
   };
 
-  const getPlanDetails = (planType: 'monthly' | 'yearly') => {
-    const amount = currencies[currency as keyof typeof currencies][planType];
-    const symbol = currencies[currency as keyof typeof currencies].symbol;
-    const period = planType === 'monthly' ? 'month' : 'year';
+  const formatDate = (dateString: string) => {
+    return new Date(dateString).toLocaleDateString('en-US', {
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric'
+    });
+  };
+
+  const isSubscriptionActive = () => {
+    if (!userSubscription) return false;
     
-    return {
-      amount,
-      symbol,
-      period,
-      display: `${symbol}${amount}/${period}`
-    };
+    const now = new Date();
+    const endDate = new Date(userSubscription.endDate);
+    return userSubscription.status === 'active' && now < endDate;
+  };
+
+  const getSubscriptionButtonText = (planType: string) => {
+    if (isLoadingSubscription) {
+      return "Checking Subscription...";
+    }
+    
+    if (userSubscription) {
+      if (userSubscription.plan === planType && isSubscriptionActive()) {
+        return "Current Plan";
+      }
+      return "Already Subscribed";
+    }
+    
+    return planType === 'monthly' ? "Subscribe Now" : "Get Best Value";
+  };
+
+  const isButtonDisabled = (planType: string) => {
+    if (isLoadingSubscription) return true;
+    if (isProcessing) return true;
+    if (!user) return false; // Allow login redirect
+    return userSubscription !== null;
   };
 
   return (
@@ -194,6 +268,41 @@ const Pricing = () => {
             Select the plan that works best for you and your animal's healthcare needs
           </p>
         </div>
+
+        {/* User Subscription Status */}
+        {userSubscription && isSubscriptionActive() && (
+          <div className="max-w-2xl mx-auto mb-8">
+            <Card className="bg-green-50 border-green-200">
+              <CardContent className="p-6">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center space-x-4">
+                    <div className="bg-green-100 p-3 rounded-full">
+                      <UserCheck className="h-6 w-6 text-green-600" />
+                    </div>
+                    <div>
+                      <h3 className="text-lg font-semibold text-green-800">
+                        Active {userSubscription.plan.charAt(0).toUpperCase() + userSubscription.plan.slice(1)} Subscription
+                      </h3>
+                      <div className="flex items-center space-x-4 text-sm text-green-700 mt-1">
+                        <div className="flex items-center space-x-1">
+                          <Calendar className="h-4 w-4" />
+                          <span>Started: {formatDate(userSubscription.startDate)}</span>
+                        </div>
+                        <div className="flex items-center space-x-1">
+                          <Calendar className="h-4 w-4" />
+                          <span>Renews: {formatDate(userSubscription.endDate)}</span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                  <div className="bg-green-100 text-green-800 px-3 py-1 rounded-full text-sm font-medium">
+                    Active
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        )}
 
         {/* Currency Selector */}
         <div className="flex justify-center mb-12">
@@ -344,7 +453,7 @@ const Pricing = () => {
                 <Button 
                   className="w-full bg-[#00BFA6] hover:bg-[#00A896] text-white relative"
                   onClick={() => handleChoosePlan('monthly')}
-                  disabled={isProcessing}
+                  disabled={isButtonDisabled('monthly')}
                 >
                   {isProcessing && selectedPlan === 'monthly' ? (
                     <>
@@ -354,7 +463,7 @@ const Pricing = () => {
                   ) : (
                     <>
                       <CreditCard className="w-4 h-4 mr-2" />
-                      Subscribe Now
+                      {getSubscriptionButtonText('monthly')}
                     </>
                   )}
                 </Button>
@@ -432,7 +541,7 @@ const Pricing = () => {
                 <Button 
                   className="w-full bg-yellow-400 hover:bg-yellow-500 text-gray-900"
                   onClick={() => handleChoosePlan('yearly')}
-                  disabled={isProcessing}
+                  disabled={isButtonDisabled('yearly')}
                 >
                   {isProcessing && selectedPlan === 'yearly' ? (
                     <>
@@ -442,7 +551,7 @@ const Pricing = () => {
                   ) : (
                     <>
                       <Crown className="w-4 h-4 mr-2" />
-                      Get Best Value
+                      {getSubscriptionButtonText('yearly')}
                     </>
                   )}
                 </Button>
