@@ -21,6 +21,10 @@ import { AuthProvider } from './contexts/AuthContext';
 import Pricing from "./components/Pricing";
 import AdminDashboard from "./pages/adminDashboard";
 import AuthCallback from "./components/AuthCallback";
+import PrivacyPolicy from "./pages/PrivacyPolicy";
+import TermsConditions from "./pages/TermsConditions";
+import CancellationRefund from "./pages/CancellationRefund";
+import Contact from "./pages/Contact";
 import React, { useState, useEffect } from "react";
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
@@ -53,12 +57,12 @@ export const AppContext = React.createContext<{
   fetchSubscription: () => Promise<void>;
 }>({
   isLoading: false,
-  setIsLoading: () => {},
+  setIsLoading: () => { },
   subscription: null,
-  setSubscription: () => {},
+  setSubscription: () => { },
   user: null,
-  setUser: () => {},
-  fetchSubscription: async () => {}
+  setUser: () => { },
+  fetchSubscription: async () => { }
 });
 
 // Global loader component
@@ -85,44 +89,44 @@ function App() {
 
   // Fetch subscription function that can be called from anywhere
   // Inside your App component, update the fetchSubscription function
-const fetchSubscription = async () => {
-  const token = localStorage.getItem('authToken');
-  const userData = localStorage.getItem('user');
-  
-  if (!token || !userData) {
-    setSubscription(null);
-    setUser(null);
-    return;
-  }
+  const fetchSubscription = async () => {
+    const token = localStorage.getItem('authToken');
+    const userData = localStorage.getItem('user');
 
-  try {
-    const userObj = JSON.parse(userData);
-    setUser(userObj);
+    if (!token || !userData) {
+      setSubscription(null);
+      setUser(null);
+      return;
+    }
 
-    const response = await fetch(`${API_BASE_URL}/subscriptions/user/${userObj.id}`, {
-      method: 'GET',
-      headers: {
-        'Authorization': `Bearer ${token}`
+    try {
+      const userObj = JSON.parse(userData);
+      setUser(userObj);
+
+      const response = await fetch(`${API_BASE_URL}/subscriptions/user/${userObj.id}`, {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+
+      const data = await response.json();
+
+      if (data.success && data.data && data.data.subscription) {
+        setSubscription(data.data.subscription);
+
+        // Clear token count when user subscribes
+        if (data.data.subscription.status === 'active') {
+          localStorage.removeItem("aivet-tokens");
+        }
+      } else {
+        setSubscription(null);
       }
-    });
-
-    const data = await response.json();
-
-    if (data.success && data.data && data.data.subscription) {
-      setSubscription(data.data.subscription);
-      
-      // Clear token count when user subscribes
-      if (data.data.subscription.status === 'active') {
-        localStorage.removeItem("aivet-tokens");
-      }
-    } else {
+    } catch (error) {
+      console.error('Error fetching subscription:', error);
       setSubscription(null);
     }
-  } catch (error) {
-    console.error('Error fetching subscription:', error);
-    setSubscription(null);
-  }
-};
+  };
   // Initial subscription fetch on app load
   useEffect(() => {
     const initializeApp = async () => {
@@ -170,6 +174,10 @@ const fetchSubscription = async () => {
                 <Route path="*" element={<NotFound />} />
                 <Route path="/admin/dashboard" element={<AdminDashboard />} />
                 <Route path="/auth/callback" element={<AuthCallback />} />
+                <Route path="/privacy-policy" element={<PrivacyPolicy />} />
+                <Route path="/terms-conditions" element={<TermsConditions />} />
+                <Route path="/cancellation-refund" element={<CancellationRefund />} />
+                <Route path="/contact" element={<Contact />} />
               </Routes>
               <AIChatButton />
             </BrowserRouter>

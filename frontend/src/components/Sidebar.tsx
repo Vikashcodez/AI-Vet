@@ -1,4 +1,4 @@
-import React, { useEffect, useContext } from "react";
+import React, { useEffect, useContext, useState, useRef } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { 
   FileText, 
@@ -10,7 +10,11 @@ import {
   Menu,
   Stethoscope,
   LogIn,
-  Crown
+  Crown,
+  User,
+  Settings,
+  LogOut,
+  ChevronDown
 } from "lucide-react";
 import {
   Sidebar,
@@ -24,7 +28,8 @@ import {
   useSidebar
 } from "@/components/ui/sidebar";
 import UserAvatar from "./UserAvatar";
-import { AppContext } from "../App"; // Import from App.tsx
+import { AppContext } from "../App";
+import { useAuth } from "@/contexts/AuthContext";
 
 export default function MedicalSidebar() {
   const location = useLocation();
@@ -38,6 +43,8 @@ export default function MedicalSidebar() {
     setSubscription,
     fetchSubscription 
   } = useContext(AppContext);
+  
+  const { logout } = useAuth();
 
   // Check if user is logged in on component mount
   useEffect(() => {
@@ -48,33 +55,58 @@ export default function MedicalSidebar() {
       if (!token || !userData) {
         setUser(null);
         setSubscription(null);
+      } else {
+        try {
+          const parsedUser = JSON.parse(userData);
+          setUser(parsedUser);
+        } catch (error) {
+          console.error('Error parsing user data:', error);
+          setUser(null);
+          setSubscription(null);
+        }
       }
     };
 
     checkAuthStatus();
 
     // Listen for storage changes (logout from other tabs)
-    const handleStorageChange = () => {
+    const handleStorageChange = (e: StorageEvent) => {
+      if (e.key === 'authToken' || e.key === 'user') {
+        checkAuthStatus();
+      }
+    };
+
+    // Listen for custom logout events
+    const handleCustomLogout = () => {
       checkAuthStatus();
     };
 
     window.addEventListener('storage', handleStorageChange);
-    return () => window.removeEventListener('storage', handleStorageChange);
+    window.addEventListener('customLogout', handleCustomLogout);
+    
+    return () => {
+      window.removeEventListener('storage', handleStorageChange);
+      window.removeEventListener('customLogout', handleCustomLogout);
+    };
   }, [setUser, setSubscription]);
 
   const handleLogout = () => {
     setIsLoading(true);
     try {
-      // Clear localStorage
-      localStorage.removeItem('authToken');
-      localStorage.removeItem('user');
+      // Use the auth context logout for consistency
+      logout();
       
       // Update global state
       setUser(null);
       setSubscription(null);
       
-      // Redirect to home page
-      navigate('/');
+      // Dispatch custom event to sync all components
+      window.dispatchEvent(new Event('customLogout'));
+      
+      // Redirect to home page with slight delay for state to sync
+      setTimeout(() => {
+        navigate('/');
+      }, 100);
     } finally {
       setTimeout(() => setIsLoading(false), 500);
     }
@@ -293,6 +325,10 @@ export function MobileSidebarButton() {
   const navigate = useNavigate();
   const currentPath = location.pathname;
   const { user, subscription } = useContext(AppContext);
+  const { logout } = useAuth();
+  
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const mobileMenuRef = useRef<HTMLDivElement>(null);
 
   // Find the current service based on the path
   const getCurrentService = () => {
@@ -325,6 +361,32 @@ export function MobileSidebarButton() {
     return subscription.status === 'active' && now < endDate;
   };
 
+  const handleMobileLogout = () => {
+    logout();
+    setIsMobileMenuOpen(false);
+    window.dispatchEvent(new Event('customLogout'));
+    setTimeout(() => {
+      navigate('/');
+    }, 100);
+  };
+
+  const handleMenuItemClick = (path: string) => {
+    navigate(path);
+    setIsMobileMenuOpen(false);
+  };
+
+  // Close mobile menu when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (mobileMenuRef.current && !mobileMenuRef.current.contains(event.target as Node)) {
+        setIsMobileMenuOpen(false);
+      }
+    };
+
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
   return (
     <div className="fixed top-0 left-0 right-0 z-50 md:hidden flex items-center justify-between bg-white p-3 border-b border-gray-200 shadow-sm">
       <div className="flex items-center">
@@ -349,29 +411,92 @@ export function MobileSidebarButton() {
         </div>
       </div>
       
-      {/* Mobile user avatar */}
-      {user ? (
-        <div className="flex items-center gap-2">
-          {!isSubscriptionActive() && (
-            <button 
-              onClick={() => navigate('/pricing')}
-              className="bg-[#00BFA6] text-white text-xs px-2 py-1 rounded-full"
+      {/* Mobile user avatar with dropdown */}
+      <div className="relative" ref={mobileMenuRef}>
+        {user ? (
+          <div className="flex items-center gap-2">
+            {!isSubscriptionActive() && (
+              <button 
+                onClick={() => navigate('/pricing')}
+                className="bg-[#00BFA6] text-white text-xs px-2 py-1 rounded-full"
+              >
+                Upgrade
+              </button>
+            )}
+            <button
+              onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
+              className="flex items-center gap-2 p-1 rounded-lg hover:bg-gray-100 transition-colors"
             >
-              Upgrade
+              <div className="w-8 h-8 rounded-full bg-gradient-to-r from-[#00BFA6] to-[#00A896] flex items-center justify-center text-white text-sm font-medium">
+                {getUserInitials()}
+              </div>
+              <ChevronDown className={`w-4 h-4 text-gray-600 transition-transform ${isMobileMenuOpen ? 'rotate-180' : ''}`} />
             </button>
-          )}
-          <div className="w-8 h-8 rounded-full bg-gradient-to-r from-[#00BFA6] to-[#00A896] flex items-center justify-center text-white text-sm font-medium">
-            {getUserInitials()}
+
+            {/* Mobile Dropdown Menu */}
+            {isMobileMenuOpen && (
+              <div className="absolute top-full right-0 mt-2 w-56 bg-white border border-gray-200 rounded-lg shadow-lg z-50">
+                <div className="p-2">
+                  {/* User Info */}
+                  <div className="flex items-center gap-3 px-3 py-2 mb-2 border-b border-gray-100">
+                    <div className="w-10 h-10 rounded-full bg-gradient-to-r from-[#00BFA6] to-[#00A896] flex items-center justify-center text-white text-sm font-medium">
+                      {getUserInitials()}
+                    </div>
+                    <div>
+                      <p className="text-sm font-medium text-gray-900 truncate">
+                        {user.firstName} {user.lastName}
+                      </p>
+                      <p className="text-xs text-gray-500 truncate">{user.email}</p>
+                    </div>
+                  </div>
+                  
+                  {/* Menu Items */}
+                  <button
+                    onClick={() => handleMenuItemClick('/dashboard')}
+                    className="flex items-center gap-3 w-full px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 rounded-md transition-colors"
+                  >
+                    <User className="w-4 h-4" />
+                    Dashboard
+                  </button>
+                  
+                  <button
+                    onClick={() => handleMenuItemClick('/plans')}
+                    className="flex items-center gap-3 w-full px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 rounded-md transition-colors"
+                  >
+                    <Crown className="w-4 h-4" />
+                    My Plans
+                  </button>
+                  
+                  <button
+                    onClick={() => handleMenuItemClick('/account')}
+                    className="flex items-center gap-3 w-full px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 rounded-md transition-colors"
+                  >
+                    <Settings className="w-4 h-4" />
+                    My Account
+                  </button>
+                  
+                  <div className="border-t border-gray-100 mt-2 pt-2">
+                    <button
+                      onClick={handleMobileLogout}
+                      className="flex items-center gap-3 w-full px-3 py-2 text-sm text-red-600 hover:bg-red-50 rounded-md transition-colors"
+                    >
+                      <LogOut className="w-4 h-4" />
+                      Logout
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
-        </div>
-      ) : (
-        <button 
-          onClick={() => window.location.href = '/login'}
-          className="w-8 h-8 rounded-full bg-gray-200 flex items-center justify-center"
-        >
-          <LogIn size={16} className="text-gray-600" />
-        </button>
-      )}
+        ) : (
+          <button 
+            onClick={() => navigate('/login')}
+            className="w-8 h-8 rounded-full bg-gray-200 flex items-center justify-center hover:bg-gray-300 transition-colors"
+          >
+            <LogIn size={16} className="text-gray-600" />
+          </button>
+        )}
+      </div>
     </div>
   );
-}
+};

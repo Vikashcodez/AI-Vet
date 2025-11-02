@@ -64,7 +64,7 @@ const UserAvatar = ({ user, onLogout }: UserAvatarProps) => {
           <div className="w-8 h-8 rounded-full bg-gradient-to-r from-[#00BFA6] to-[#00A896] flex items-center justify-center text-white text-sm font-medium">
             {getInitials(user.firstName, user.lastName)}
           </div>
-          <div className="text-left">
+          <div className="text-left hidden sm:block">
             <p className="text-sm font-medium text-gray-900 truncate max-w-[120px]">
               {user.firstName} {user.lastName}
             </p>
@@ -77,9 +77,10 @@ const UserAvatar = ({ user, onLogout }: UserAvatarProps) => {
       </Button>
 
       {isOpen && (
-        <div className="absolute bottom-full left-0 right-0 mb-2 bg-white border border-gray-200 rounded-lg shadow-lg z-50">
+        <div className="absolute top-full left-0 right-0 mt-1 bg-white border border-gray-200 rounded-lg shadow-lg z-50">
           <div className="p-2">
-            <div className="flex items-center gap-3 px-3 py-2 mb-2 border-b border-gray-100">
+            {/* Mobile-friendly user info - always show on mobile */}
+            <div className="flex items-center gap-3 px-3 py-2 mb-2 border-b border-gray-100 sm:hidden">
               <div className="w-10 h-10 rounded-full bg-gradient-to-r from-[#00BFA6] to-[#00A896] flex items-center justify-center text-white text-sm font-medium">
                 {getInitials(user.firstName, user.lastName)}
               </div>
@@ -91,7 +92,13 @@ const UserAvatar = ({ user, onLogout }: UserAvatarProps) => {
               </div>
             </div>
             
-         
+            <button
+              onClick={() => handleMenuItemClick('/dashboard')}
+              className="flex items-center gap-3 w-full px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 rounded-md transition-colors"
+            >
+              <User className="w-4 h-4" />
+              Dashboard
+            </button>
             
             <button
               onClick={() => handleMenuItemClick('/plans')}
@@ -101,7 +108,13 @@ const UserAvatar = ({ user, onLogout }: UserAvatarProps) => {
               My Plans
             </button>
             
-           
+            <button
+              onClick={() => handleMenuItemClick('/account')}
+              className="flex items-center gap-3 w-full px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 rounded-md transition-colors"
+            >
+              <Settings className="w-4 h-4" />
+              My Account
+            </button>
             
             <div className="border-t border-gray-100 mt-2 pt-2">
               <button

@@ -40,11 +40,11 @@ const Index = () => {
   };
 
   const handleLogout = () => {
-    logout();
-    setIsUserMenuOpen(false);
-    navigate('/');
-  };
-
+  logout();
+  setIsUserMenuOpen(false);
+  // Force a page refresh to ensure all components re-render
+  window.location.reload();
+};
   const getInitials = (firstName: string, lastName: string) => {
     return `${firstName.charAt(0)}${lastName.charAt(0)}`.toUpperCase();
   };
@@ -436,11 +436,12 @@ const Index = () => {
           </div>
 
           <div className="space-y-4">
-            <h4 className="text-lg font-semibold">Get Started</h4>
+            <h4 className="text-lg font-semibold">Legal</h4>
             <div className="flex flex-col gap-2">
-              <Link to="/signup" className="text-gray-300 hover:text-white transition-colors">Create Account</Link>
-              <Link to="/login" className="text-gray-300 hover:text-white transition-colors">Login</Link>
-              <Link to="/pricing" className="text-gray-300 hover:text-white transition-colors">View Plans</Link>
+              <Link to="/privacy-policy" className="text-gray-300 hover:text-white transition-colors">Privacy Policy</Link>
+              <Link to="/terms-conditions" className="text-gray-300 hover:text-white transition-colors">Terms & Conditions</Link>
+              <Link to="/cancellation-refund" className="text-gray-300 hover:text-white transition-colors">Cancellation & Refund</Link>
+              <Link to="/contact" className="text-gray-300 hover:text-white transition-colors">Contact Us</Link>
             </div>
           </div>
         </div>
