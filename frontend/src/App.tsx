@@ -84,40 +84,45 @@ function App() {
   const [user, setUser] = useState<UserData | null>(null);
 
   // Fetch subscription function that can be called from anywhere
-  const fetchSubscription = async () => {
-    const token = localStorage.getItem('authToken');
-    const userData = localStorage.getItem('user');
-    
-    if (!token || !userData) {
-      setSubscription(null);
-      setUser(null);
-      return;
-    }
+  // Inside your App component, update the fetchSubscription function
+const fetchSubscription = async () => {
+  const token = localStorage.getItem('authToken');
+  const userData = localStorage.getItem('user');
+  
+  if (!token || !userData) {
+    setSubscription(null);
+    setUser(null);
+    return;
+  }
 
-    try {
-      const userObj = JSON.parse(userData);
-      setUser(userObj);
+  try {
+    const userObj = JSON.parse(userData);
+    setUser(userObj);
 
-      const response = await fetch(`${API_BASE_URL}/subscriptions/user/${userObj.id}`, {
-        method: 'GET',
-        headers: {
-          'Authorization': `Bearer ${token}`
-        }
-      });
-
-      const data = await response.json();
-
-      if (data.success && data.data && data.data.subscription) {
-        setSubscription(data.data.subscription);
-      } else {
-        setSubscription(null);
+    const response = await fetch(`${API_BASE_URL}/subscriptions/user/${userObj.id}`, {
+      method: 'GET',
+      headers: {
+        'Authorization': `Bearer ${token}`
       }
-    } catch (error) {
-      console.error('Error fetching subscription:', error);
+    });
+
+    const data = await response.json();
+
+    if (data.success && data.data && data.data.subscription) {
+      setSubscription(data.data.subscription);
+      
+      // Clear token count when user subscribes
+      if (data.data.subscription.status === 'active') {
+        localStorage.removeItem("aivet-tokens");
+      }
+    } else {
       setSubscription(null);
     }
-  };
-
+  } catch (error) {
+    console.error('Error fetching subscription:', error);
+    setSubscription(null);
+  }
+};
   // Initial subscription fetch on app load
   useEffect(() => {
     const initializeApp = async () => {

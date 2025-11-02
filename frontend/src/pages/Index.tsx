@@ -7,7 +7,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
 import { useState, useEffect, useRef } from "react";
-//import { useTokens } from "@/hooks/useTokens";
+import { useTokens } from "@/hooks/useTokens";
 import { useAuth } from "@/contexts/AuthContext";
 
 
@@ -16,7 +16,7 @@ const Index = () => {
   const navigate = useNavigate();
   const { user, logout } = useAuth();
   const [currency, setCurrency] = useState("INR");
-  // const { tokens, showPricing, setShowPricing } = useTokens();
+  const { tokens, showPricing, setShowPricing } = useTokens();
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
   const userMenuRef = useRef<HTMLDivElement>(null);
 

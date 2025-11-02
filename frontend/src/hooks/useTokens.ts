@@ -1,17 +1,28 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useContext } from 'react';
+import { AppContext } from '../App'; // Adjust the import path
 
 export const useTokens = () => {
   const [tokens, setTokens] = useState(5);
   const [showPricing, setShowPricing] = useState(false);
+  const { subscription, user } = useContext(AppContext);
 
   useEffect(() => {
-    const savedTokens = localStorage.getItem("aivet-tokens");
-    if (savedTokens) {
-      setTokens(parseInt(savedTokens));
+    // Only use token system for non-subscribed users
+    if (!subscription || subscription.status !== 'active') {
+      const savedTokens = localStorage.getItem("aivet-tokens");
+      if (savedTokens) {
+        setTokens(parseInt(savedTokens));
+      }
     }
-  }, []);
+  }, [subscription]);
 
   const useToken = () => {
+    // If user has active subscription, always return true without consuming tokens
+    if (subscription && subscription.status === 'active') {
+      return true;
+    }
+
+    // For non-subscribed users, use token system
     if (tokens > 0) {
       const newTokens = tokens - 1;
       setTokens(newTokens);
@@ -23,10 +34,13 @@ export const useTokens = () => {
     }
   };
 
+  const hasUnlimitedAccess = subscription && subscription.status === 'active';
+
   return {
-    tokens,
+    tokens: hasUnlimitedAccess ? 'unlimited' : tokens,
     useToken,
     showPricing,
-    setShowPricing
+    setShowPricing,
+    hasUnlimitedAccess
   };
 };
