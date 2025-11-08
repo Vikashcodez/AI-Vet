@@ -140,7 +140,7 @@ const Pricing = () => {
             const verifyData = await verifyResponse.json();
 
             if (verifyData.success) {
-              alert('🎉 Payment successful! Your subscription is now active.');
+              alert(' Payment successful! Your subscription is now active.');
               // Refresh subscription data
               await fetchSubscription();
               // Redirect to dashboard
